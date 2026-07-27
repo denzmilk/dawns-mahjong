@@ -67,10 +67,10 @@ When an entry is **rejected**, wrap the title in `~~strikethrough~~` and add a o
 
 ## Tech & refactors
 
-- [ ] **Downscale the Elvis photos** — 8.9 MB across 17 images is a slow first load on tablet wifi, and it all gets precached by the service worker.
+- [ ] ~~**Downscale the Elvis photos**~~ — 9 MB across 18 images is a slow first load on tablet wifi.
   - Source: 2026-07-27 planning session
   - Rough size: S · Rough value: L
-  - Notes: Tile-face copies need ~256 px; the greeting hero ~1600 px wide; other portraits ~1024 px. Pencilled into milestone 09 but **probably needs promoting to milestone 04**, which is the first milestone that actually loads the hero image. The two `dawn-with-elvis-*.jpg` files are 2752×1536 each.
+  - Rejected: 2026-07-27 by Chris — "size is not a problem at all". Home wifi, one install, and the service worker caches it after the first load. Reopen only if the first load turns out to be genuinely slow on her tablet. The tile-face crops will still be resized as part of milestone 08, because a 2752 px photograph on a 256 px tile face is a rendering concern rather than a bandwidth one.
 
 - [ ] **Crop the greeting hero tight to the two figures** — the background of `dawn-with-elvis-1.jpg` contains AI-generated poster text that reads as gibberish ("ELVIS FIGN", "MALY APRIL 19").
   - Source: 2026-07-27 planning session, on inspecting the supplied image
@@ -81,6 +81,11 @@ When an entry is **rejected**, wrap the title in `~~strikethrough~~` and add a o
   - Source: 2026-07-27 planning session
   - Rough size: S · Rough value: M
   - Notes: Faces are ~90×110 px in the preview sheet. Milestone 03's measuring script makes a swap a one-command re-measure. Only needed if faces read soft on the tablet.
+
+- [ ] **Survive WebGL context loss** — listen for `webglcontextlost` / `webglcontextrestored` and rebuild the scene instead of leaving a blank canvas.
+  - Source: 2026-07-27, noticed while verifying the production build (headless Chromium raised `CONTEXT_LOST_WEBGL` intermittently)
+  - Rough size: S · Rough value: L
+  - Notes: The headless occurrence was software-GL noise, but the underlying risk is real and specific to this player: an Android tablet that sleeps or backgrounds the tab mid-game can genuinely lose the GL context, and today nothing restores it — she would come back to a blank green screen with no idea why. Needs the board state (already in `GameState`) re-realised into fresh meshes. Pairs naturally with milestone 07's save work.
 
 - [ ] **Merge tile geometry / instancing** — if 144 individual meshes strain the tablet GPU.
   - Source: 2026-07-27 planning session

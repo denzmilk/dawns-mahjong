@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # So a broken deploy can be retried, or a review build pushed on demand.
+  workflow_dispatch:
+
+# Pages needs these; the token is otherwise read-only.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race. Queue rather than cancel, so the last push always
+# ends up being what is live.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # The build is only useful if it works from the project-site subpath
+      # (denzmilk.github.io/dawns-mahjong/), which is exactly where an absolute
+      # asset URL breaks — and it breaks invisibly. This serves dist/ from that
+      # subpath in a real browser and fails the deploy rather than shipping it.
+      - name: Verify the build works from a project-site subpath
+        run: |
+          npx playwright install --with-deps chromium
+          node scripts/verify-build.mjs
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -108,7 +108,8 @@ Detailed milestone docs exist for the first three. The rest are listed here as t
 6. **06 — Sound** — procedural click/chime/thud/lick and the mute toggle.
 7. **07 — Save & carry on** — versioned localStorage save, autosave after every move, resume prompt, boards-completed count.
 8. **08 — Elvis** — portraits on greeting/win, the 8 Elvis tile faces, the spotlight-and-rhinestones animation, palette accents.
-9. **09 — Onto her tablet** — installable PWA (offline, home-screen icon, "Install" button), public GitHub repo, GitHub Pages deploy.
+9. **09 — Onto her tablet** — installable PWA: web app manifest, service worker, offline play, "Install on this tablet" button.
+10. **10 — GitHub Pages deploy** *(done out of order, 2026-07-27)* — pulled forward from 09 so every review happens on the real URL on Dawn's tablet rather than on a desktop dev server. The public repo was created early for the same reason.
 
 ## Resolved decisions
 

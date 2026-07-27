@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "playwright test",
+    "verify:build": "npm run build && node scripts/verify-build.mjs",
     "assets:sync": "node scripts/sync-assets.mjs"
   },
   "devDependencies": {

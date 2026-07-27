@@ -99,8 +99,9 @@ docs/                    # gameplan, tech, milestones, ADRs, backlog, STATE
 
 ## Deployment
 
-- **GitHub Pages** from a new public repo, `denzmilk/dawns-mahjong`, built by a GitHub Actions workflow that publishes `dist/`.
-- `vite.config.js` already uses `base: './'`, so a project-site path (`/dawns-mahjong/`) needs no extra config. The service worker registration and manifest paths must be relative for the same reason — the one PWA gotcha on project sites.
+- **Live at https://denzmilk.github.io/dawns-mahjong/** — public repo `denzmilk/dawns-mahjong`, deployed by `.github/workflows/deploy.yml` on every push to `main` (plus `workflow_dispatch` for on-demand review builds). Pages is configured with `build_type=workflow`. **Reviews happen on this URL, on Dawn's tablet — not on a local dev server.**
+- `vite.config.js` uses `base: './'`, and Vite rewrites even the `url()` references inside bundled CSS to relative paths, so a project-site path needs no extra config. This was verified rather than assumed: an absolute asset URL resolves against `denzmilk.github.io/` instead of the repo path, and the failure is invisible until it is live.
+- **`npm run verify:build` is the deploy gate.** It serves `dist/` from a `/dawns-mahjong` subpath in a real headless browser and fails on console errors, HTTP 4xx, any asset requested outside the subpath, a font that didn't load, or a board that didn't render. It runs in CI before the artifact is uploaded, so a subpath-breaking build fails instead of shipping. The service worker and manifest paths in milestone 09 must be relative for the same reason, and this script is where that gets proven.
 - **Install to home screen:** the front screen shows a big *Install on this tablet* button when the browser offers `beforeinstallprompt`, with written fallback steps for Samsung Internet (menu → Add page to → Home screen). The button hides itself once running in `display-mode: standalone`.
 
 ## Out-of-scope dependencies
