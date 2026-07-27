@@ -255,15 +255,19 @@ export const FACE_LABELS = {
 // Chosen for faces and strong silhouettes: at ~80 px on a tile, a busy full-length
 // shot is a grey smudge. focusY biases the square crop up or down the photo so the
 // crop lands on him rather than on a microphone stand.
+// focusX / focusY put the crop's centre on his face; zoom is how much of the photo's
+// height the crop takes. Tight (0.4–0.55) on purpose: a full-frame crop of a
+// publicity still puts a jacket on the tile, and a jacket is not recognisable as
+// Elvis at 80 px.
 export const ELVIS_TILE_PHOTOS = [
-  { file: 'publicity-1956.jpg', focusY: 0.36 },
-  { file: 'love-me-tender-1956.jpg', focusY: 0.32 },
-  { file: 'young-elvis.jpg', focusY: 0.34 },
-  { file: 'colour-1970.jpg', focusY: 0.3 },
-  { file: 'jailhouse-rock.jpg', focusY: 0.28 },
-  { file: 'publicity-still-1956.jpg', focusY: 0.3 },
-  { file: 'harley-1956.jpg', focusY: 0.34 },
-  { file: 'tv-debut-1956.jpg', focusY: 0.3 },
+  { file: 'publicity-1956.jpg', focusX: 0.5, focusY: 0.34, zoom: 0.5 },
+  { file: 'love-me-tender-1956.jpg', focusX: 0.52, focusY: 0.42, zoom: 0.72 },
+  { file: 'young-elvis.jpg', focusX: 0.5, focusY: 0.34, zoom: 0.5 },
+  { file: 'colour-1970.jpg', focusX: 0.5, focusY: 0.32, zoom: 0.55 },
+  { file: 'jailhouse-rock.jpg', focusX: 0.5, focusY: 0.24, zoom: 0.4 },
+  { file: 'publicity-still-1956.jpg', focusX: 0.5, focusY: 0.28, zoom: 0.45 },
+  { file: 'harley-1956.jpg', focusX: 0.52, focusY: 0.26, zoom: 0.4 },
+  { file: 'tv-debut-1956.jpg', focusX: 0.5, focusY: 0.26, zoom: 0.45 },
 ];
 
 export const ATLAS = {

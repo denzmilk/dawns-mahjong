@@ -106,16 +106,21 @@ export function drawElvisFaces(canvas, photos) {
     ctx.fillStyle = hexCss(COLORS.ivory);
     ctx.fillRect(at.x, at.y, cellWidth, cellHeight);
 
-    // Cover-crop the photo into the tile's portrait aspect, biased to his face.
+    // Crop tight around his face, in the tile's portrait aspect. A full-frame
+    // cover-crop of a publicity still puts a jacket on the tile, and a jacket is not
+    // recognisable as Elvis at 80 px.
+    const entry = ELVIS_TILE_PHOTOS[i] || {};
     const target = inner.w / inner.h;
-    const source = photo.naturalWidth / photo.naturalHeight;
-    let sw = photo.naturalWidth;
-    let sh = photo.naturalHeight;
-    if (source > target) sw = sh * target;
-    else sh = sw / target;
-    const sx = (photo.naturalWidth - sw) / 2;
-    const focus = ELVIS_TILE_PHOTOS[i]?.focusY ?? 0.35;
-    const sy = Math.max(0, Math.min(photo.naturalHeight - sh, photo.naturalHeight * focus - sh / 2));
+    const zoom = entry.zoom ?? 0.5;
+    let sh = photo.naturalHeight * zoom;
+    let sw = sh * target;
+    if (sw > photo.naturalWidth) {
+      sw = photo.naturalWidth;
+      sh = sw / target;
+    }
+    const clamp = (value, max) => Math.max(0, Math.min(max, value));
+    const sx = clamp(photo.naturalWidth * (entry.focusX ?? 0.5) - sw / 2, photo.naturalWidth - sw);
+    const sy = clamp(photo.naturalHeight * (entry.focusY ?? 0.3) - sh / 2, photo.naturalHeight - sh);
 
     ctx.beginPath();
     ctx.rect(inner.x, inner.y, inner.w, inner.h);
