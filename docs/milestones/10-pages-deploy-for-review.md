@@ -2,7 +2,7 @@
 
 ## Status
 
-in-progress — workflow written and Pages enabled; first live deploy being verified
+in-progress — deployed and verified live; only the on-tablet playtest AC remains
 
 ## Objective
 
@@ -49,13 +49,15 @@ not renumbered; it runs out of order by design.
       test: `scripts/verify-build.mjs` (a script rather than a spec: it needs its
       own static server on a subpath, which the Playwright config's single dev
       server can't provide)
-- [ ] A push to `main` builds and deploys without manual steps — verified by the
-      workflow run
-- [ ] The workflow fails the deploy rather than publishing a build that breaks on
+- [x] A push to `main` builds and deploys without manual steps — verified by
+      workflow run 30250591845 (build, verify, deploy all green)
+- [x] The workflow fails the deploy rather than publishing a build that breaks on
       the subpath — verified by the `verify:build` gate running in CI
-- [ ] `https://denzmilk.github.io/dawns-mahjong/` loads over HTTPS with a clean
-      console and renders the full 72-tile board
-- [ ] `?layout=turtle-144` works on the live URL
+- [x] `https://denzmilk.github.io/dawns-mahjong/` loads over HTTPS with a clean
+      console and renders the full 72-tile board — verified at a 1024×640 tablet
+      viewport: HTTP 200, 72 tiles, tiles 68.1 dp, font loaded, no console or
+      network problems
+- [x] `?layout=turtle-144` works on the live URL — 144 tiles, 47.2 dp, clean
 - [ ] The live URL loads and plays acceptably **on Dawn's tablet** — verified by
       user playtest
 
@@ -86,3 +88,11 @@ board, and every later review happens at that URL without a local dev server.
 - Milestone 09 will need the manifest and service-worker paths to be relative for
   exactly the same reason as the assets above, and `verify:build` is where that gets
   proven.
+- The run logs a deprecation annotation: `actions/checkout@v4`, `setup-node@v4` and
+  `upload-artifact@v4` target Node 20 and are being forced onto Node 24. Harmless
+  today and the deploy is green; bump the action majors when one of them actually
+  breaks rather than guessing at versions now.
+- Live measurements at 1024×640 match the local ones exactly (68.1 dp for easy-72,
+  47.2 dp for the turtle), so the local tablet-viewport tests are a trustworthy
+  proxy and reviews don't need a device to catch layout regressions — only to
+  settle how it *feels*.

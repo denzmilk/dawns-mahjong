@@ -14,6 +14,8 @@ development
 
 Milestone 01 — [clean slate & the board](milestones/01-clean-slate-and-board.md) · **in-progress**: all 20 automated ACs green, the two playtest ACs await Chris.
 
+Milestone 10 — [Pages deploy, early, for review](milestones/10-pages-deploy-for-review.md) · **in-progress**: deployed and verified live, only the on-tablet playtest AC remains. **The game is live at https://denzmilk.github.io/dawns-mahjong/** — every review happens there now, not on localhost.
+
 ## Last action
 
 Two things in one session.
@@ -24,7 +26,9 @@ Two things in one session.
 
 ## Next step
 
-**Chris playtests the board** — `npm run dev` (port 3100), ideally loaded on Dawn's tablet over the LAN with `npm run dev -- --host`. Two open playtest ACs: does the board read as a solid physical stack of tiles, and does the tilt give depth without hurting back-row legibility? Add `?layout=turtle-144` to see the 144-tile turtle. Then answer the turtle touch-target question below → milestone 02 (matching rules and a playable game).
+**Chris reviews on the live URL** — https://denzmilk.github.io/dawns-mahjong/ (add `?layout=turtle-144` for the big board), ideally on Dawn's tablet. Two open playtest ACs from milestone 01: does the board read as a solid physical stack of tiles, and does the tilt give depth without hurting back-row legibility? Note the tile faces are deliberately crude placeholders until milestone 03.
+
+Then milestone 02 (matching rules and a playable game) or milestone 03 (real tile faces from Chris's sheet) — 03 first if what matters is having something worth looking at on the live URL, since a placeholder board is hard to judge.
 
 ## Decisions taken this session
 
@@ -38,6 +42,8 @@ Two things in one session.
 
 ## Notes for next session
 
+- **Reviews happen on the live URL now**, not localhost — Chris asked for that on 2026-07-27. Push to `main` and the deploy runs itself (~1 min); `gh run watch` to follow it. `npm run verify:build` locally first if the change touches assets, paths, or the build, since that is the CI gate.
+- **Live measurements match local ones exactly** (68.1 dp easy-72, 47.2 dp turtle at 1024×640), so the tablet-viewport tests catch layout regressions without a device. A device is only needed for how it *feels*.
 - **Port 3100, `strictPort: true`.** Another of Chris's projects (`~/Projects/Jimothy`) holds 3000 and Vite silently slid to 3001 — the entire browser suite spent a run asserting against a different app while producing plausible-looking failures. If the dev server won't start, something else took 3100; don't "fix" it by changing the port back.
 - **Git history starts fresh here.** This directory's Jimothy commits were discarded when the repo was re-initialised for `denzmilk/dawns-mahjong`; they remain on the `denzmilk/jimothys-big-day-out` remote, which was fully up to date.
 - **Jimothy's uncommitted milestone 05 + 06 work is saved at `~/jimothy-m05-m06.patch`** (66 KB, outside this repo). It was staged-but-never-committed, so it is *not* in the Jimothy remote — that remote is at milestone 02. Chris knows; bin the patch whenever he says.
