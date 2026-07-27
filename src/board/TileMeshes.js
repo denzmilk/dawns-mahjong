@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ATLAS, COLORS, FACES, FACE_LABELS, LATTICE, TILE } from '../core/Constants.js';
+import { atlasSize } from '../assets/TileSheet.js';
 
 // All 144 tiles share ONE texture and ONE material. Each tile carries its own
 // small geometry whose top-face UVs point at its cell in the atlas, and whose
@@ -7,9 +8,10 @@ import { ATLAS, COLORS, FACES, FACE_LABELS, LATTICE, TILE } from '../core/Consta
 // tablet GPU and means milestone 03 only has to swap the atlas pixels, not the
 // rendering.
 
+/** UV rectangle of an atlas cell. Cells are laid out left-to-right, top-to-bottom. */
 const cellRect = (index) => {
-  const { columns, cellSize } = ATLAS;
-  const rows = Math.ceil((FACES.length + 1) / columns);
+  const { columns } = ATLAS;
+  const { rows } = atlasSize();
   const col = index % columns;
   const row = Math.floor(index / columns);
   const du = 1 / columns;
@@ -23,11 +25,11 @@ const cellRect = (index) => {
  * work. Milestone 03 replaces this with the sliced sheet.
  */
 export function buildPlaceholderAtlas() {
-  const { columns, cellSize } = ATLAS;
-  const rows = Math.ceil((FACES.length + 1) / columns);
+  const { columns, cellWidth, cellHeight } = ATLAS;
+  const { width, height } = atlasSize();
   const canvas = document.createElement('canvas');
-  canvas.width = columns * cellSize;
-  canvas.height = rows * cellSize;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d');
 
   ctx.fillStyle = '#ffffff';
@@ -36,37 +38,33 @@ export function buildPlaceholderAtlas() {
   FACES.forEach((face, i) => {
     const col = i % columns;
     const row = Math.floor(i / columns);
-    const x = col * cellSize;
-    const y = row * cellSize;
+    const x = col * cellWidth;
+    const y = row * cellHeight;
     const [family, value] = face.split('-');
 
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(x, y, cellSize, cellSize);
+    ctx.fillRect(x, y, cellWidth, cellHeight);
     ctx.strokeStyle = '#c9c2ad';
     ctx.lineWidth = 3;
-    ctx.strokeRect(x + 4, y + 4, cellSize - 8, cellSize - 8);
+    ctx.strokeRect(x + 4, y + 4, cellWidth - 8, cellHeight - 8);
 
     ctx.fillStyle = '#111111';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     // maxWidth on both draws: without it a long label ("southwest") overflows its
     // cell and bleeds into the neighbouring face in the atlas.
-    const inset = cellSize * 0.82;
-    ctx.font = `bold ${Math.round(cellSize * 0.44)}px monospace`;
-    ctx.fillText(FACE_LABELS[family] || '?', x + cellSize / 2, y + cellSize * 0.36, inset);
-    ctx.font = `bold ${Math.round(cellSize * 0.4)}px monospace`;
-    ctx.fillText(String(value ?? ''), x + cellSize / 2, y + cellSize * 0.72, inset);
+    const inset = cellWidth * 0.82;
+    ctx.font = `bold ${Math.round(cellWidth * 0.44)}px monospace`;
+    ctx.fillText(FACE_LABELS[family] || '?', x + cellWidth / 2, y + cellHeight * 0.36, inset);
+    ctx.font = `bold ${Math.round(cellWidth * 0.4)}px monospace`;
+    ctx.fillText(String(value ?? ''), x + cellWidth / 2, y + cellHeight * 0.72, inset);
   });
 
   // The flat ivory cell every tile's sides and back point at.
-  const sideRect = cellRect(ATLAS.sideCellIndex);
+  const sideCol = ATLAS.sideCellIndex % columns;
+  const sideRow = Math.floor(ATLAS.sideCellIndex / columns);
   ctx.fillStyle = `#${new THREE.Color(COLORS.tileSide).getHexString()}`;
-  ctx.fillRect(
-    sideRect.u0 * canvas.width,
-    (1 - sideRect.v0 - sideRect.dv) * canvas.height,
-    sideRect.du * canvas.width,
-    sideRect.dv * canvas.height
-  );
+  ctx.fillRect(sideCol * cellWidth, sideRow * cellHeight, cellWidth, cellHeight);
 
   return canvas;
 }
@@ -80,7 +78,20 @@ export function createAtlasTexture(canvas) {
 }
 
 export function createTileMaterial(texture) {
-  return new THREE.MeshLambertMaterial({ map: texture, color: 0xffffff });
+  // vertexColors lets every tile carry its own brightness (free / blocked / hinted)
+  // while all 144 still share this single material — the alternative is a material
+  // per tile, which is a draw call per tile.
+  return new THREE.MeshLambertMaterial({ map: texture, color: 0xffffff, vertexColors: true });
+}
+
+/** Per-tile brightness, written into the geometry's colour attribute. */
+export function setTileBrightness(mesh, brightness) {
+  const colour = mesh.geometry.attributes.color;
+  if (!colour) return;
+  if (mesh.userData.brightness === brightness) return;
+  mesh.userData.brightness = brightness;
+  for (let i = 0; i < colour.count; i++) colour.setXYZ(i, brightness, brightness, brightness);
+  colour.needsUpdate = true;
 }
 
 const FACE_GROUP_PY = 2; // BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z
@@ -93,6 +104,13 @@ export function createTileGeometry(faceIndex) {
     TILE.width - TILE.gap,
     TILE.thickness,
     TILE.depth - TILE.gap
+  );
+
+  // Flat white to begin with; Game rewrites it to shade free / blocked / hinted.
+  const vertexCount = geometry.attributes.position.count;
+  geometry.setAttribute(
+    'color',
+    new THREE.BufferAttribute(new Float32Array(vertexCount * 3).fill(1), 3)
   );
 
   const uv = geometry.attributes.uv;

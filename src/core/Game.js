@@ -2,11 +2,15 @@ import * as THREE from 'three';
 import {
   ASSISTS,
   CAMERA,
+  CELEBRATION,
   COLORS,
+  ENTRANCE,
   FACES,
   INPUT,
   LIGHTING,
+  PARTICLES,
   RENDER,
+  SELECTION,
   TABLE,
   TILE,
   TIME,
@@ -24,13 +28,16 @@ import {
   createTileGeometry,
   createTileMaterial,
   latticeToWorld,
+  setTileBrightness,
   setTileFace,
 } from '../board/TileMeshes.js';
 import { CameraSystem } from '../systems/CameraSystem.js';
 import { InputSystem } from '../systems/InputSystem.js';
+import { Particles } from '../fx/Particles.js';
+import { buildShards, buildSpotlight, pickCelebration } from '../fx/Celebrations.js';
 
 export class Game {
-  constructor(container, { layoutId, seed } = {}) {
+  constructor(container, { layoutId, seed, atlasCanvas = null } = {}) {
     this.container = container;
     this.tileMeshes = [];
     this.meshById = new Map();
@@ -39,6 +46,12 @@ export class Game {
     this.pairCount = 0;
     this.mismatchHold = 0;
     this.hintHold = 0;
+    this.pulseClock = 0;
+    this.entranceClock = null;
+    this.celebrations = [];
+    this.lastCelebration = null;
+    this.matchesThisBoard = 0;
+    this.finaleClock = null;
     this.renderCount = 0;
     this.dirty = true;
     this.manualTime = false;
@@ -51,6 +64,12 @@ export class Game {
     this.renderer.shadowMap.enabled = true;
     // PCFSoftShadowMap is deprecated in three r185 and falls back to PCF anyway.
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    // Shadows are re-rendered only when the board actually changes, not on every
+    // animated frame. With 144 casters, re-shadowing per frame dominated the frame
+    // cost — and the board is static for all but a second at a time, so almost every
+    // one of those re-renders was identical to the last.
+    this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.shadowMap.needsUpdate = true;
     container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
@@ -59,11 +78,18 @@ export class Game {
     this.cameraSystem = new CameraSystem();
     this.camera = this.cameraSystem.camera;
 
-    this.atlasTexture = createAtlasTexture(buildPlaceholderAtlas());
+    // The real sheet is loaded before the game is constructed (see main.js). The
+    // placeholder atlas is the fallback if that ever fails, so a missing sheet
+    // degrades to an ugly-but-playable board rather than a blank screen.
+    this.atlasTexture = createAtlasTexture(atlasCanvas || buildPlaceholderAtlas());
     this.tileMaterial = createTileMaterial(this.atlasTexture);
 
     this.buildLights();
     this.buildTable();
+    this.buildSelectionMarkers();
+    this.particles = new Particles(this.scene);
+    this.spotlight = buildSpotlight();
+    this.scene.add(this.spotlight);
     this.loadLayout(layoutId || gameState.layoutId, { seed });
 
     this.input = new InputSystem(this.renderer.domElement, (x, y) => this.handleTap(x, y));
@@ -119,14 +145,14 @@ export class Game {
     this.scene.add(this.table);
   }
 
-  loadLayout(layoutId, { seed = null } = {}) {
+  loadLayout(layoutId, { seed = null, animate = true } = {}) {
     const layout = getLayout(layoutId);
     if (!layout) throw new Error(`Unknown layout: ${layoutId}`);
 
     const chosenSeed = seed ?? randomSeed();
     const { tiles } = generateBoard(layout, mulberry32(chosenSeed));
 
-    this.buildBoard(layout.id, tiles);
+    this.buildBoard(layout.id, tiles, { animate });
     gameState.seed = chosenSeed;
     eventBus.emit(Events.BOARD_GENERATED, {
       layoutId: layout.id,
@@ -136,9 +162,14 @@ export class Game {
   }
 
   /** Realises a set of tiles (already faced) into state and meshes. */
-  buildBoard(layoutId, tiles) {
+  buildBoard(layoutId, tiles, { animate = true } = {}) {
     this.disposeTiles();
+    // Building a board must not change which screen is showing: the caller decides
+    // that, through setScreen, which is the only path that tells the overlay. Setting
+    // it here silently left the greeting on top of a live board, swallowing taps.
+    const previousScreen = gameState.screen;
     gameState.reset(layoutId);
+    gameState.screen = previousScreen;
     gameState.tiles = tiles.map((t) => ({ ...t, cleared: Boolean(t.cleared) }));
 
     this.boardGroup = new THREE.Group();
@@ -158,7 +189,101 @@ export class Game {
 
     this.index = buildIndex(gameState.tiles);
     this.refreshBoardState();
+    this.applyTileShading();
+    this.invalidateShadows();
     this.updateSize();
+    if (animate) this.startEntrance();
+    else this.settleImmediately();
+  }
+
+  /** Places every tile at rest. Used by fixtures and by a resumed game. */
+  settleImmediately() {
+    this.entranceClock = null;
+    this.celebrations = [];
+    this.matchesThisBoard = 0;
+    this.particles.clear();
+    for (const mesh of this.tileMeshes) {
+      delete mesh.userData.entrance;
+      mesh.rotation.set(0, 0, 0);
+      mesh.scale.setScalar(1);
+    }
+    this.applySelectionVisual();
+    this.invalidateShadows();
+  }
+
+  /** True once the board has finished dealing itself and is ready to be played. */
+  get settled() {
+    return this.entranceClock === null;
+  }
+
+  /**
+   * Tiles fly in and stack themselves at the start of a board. Costs half a second
+   * and makes the board feel dealt rather than switched on.
+   */
+  startEntrance() {
+    this.entranceClock = 0;
+    this.celebrations = [];
+    this.matchesThisBoard = 0;
+    this.particles.clear();
+    for (const mesh of this.tileMeshes) {
+      const target = mesh.position.clone();
+      mesh.userData.entrance = {
+        target,
+        // Fly in from above and out to the side, stacking bottom layers first so the
+        // board assembles itself the way a person would build it.
+        from: new THREE.Vector3(
+          target.x + (Math.random() - 0.5) * ENTRANCE.spread,
+          target.y + ENTRANCE.dropHeight,
+          target.z + (Math.random() - 0.5) * ENTRANCE.spread
+        ),
+        delay: this.entranceDelayFor(mesh),
+        spin: (Math.random() - 0.5) * 2.4,
+      };
+      mesh.position.copy(mesh.userData.entrance.from);
+    }
+    this.dirty = true;
+  }
+
+  entranceDelayFor(mesh) {
+    const tile = gameState.tileById(mesh.userData.tileId);
+    if (!tile) return 0;
+    const order = tile.layer * 40 + tile.x + tile.y;
+    return order * ENTRANCE.stagger;
+  }
+
+  updateEntrance(delta) {
+    this.entranceClock += delta;
+    let settling = false;
+
+    for (const mesh of this.tileMeshes) {
+      const entrance = mesh.userData.entrance;
+      if (!entrance) continue;
+      const t = (this.entranceClock - entrance.delay) / ENTRANCE.duration;
+      if (t <= 0) {
+        settling = true;
+        mesh.position.copy(entrance.from);
+        continue;
+      }
+      if (t >= 1) {
+        mesh.position.copy(entrance.target);
+        mesh.rotation.set(0, 0, 0);
+        continue;
+      }
+      settling = true;
+      const eased = 1 - Math.pow(1 - t, 3);
+      mesh.position.lerpVectors(entrance.from, entrance.target, eased);
+      mesh.rotation.y = entrance.spin * (1 - eased);
+      mesh.rotation.z = entrance.spin * 0.4 * (1 - eased);
+    }
+
+    this.dirty = true;
+    if (!settling) {
+      this.entranceClock = null;
+      for (const mesh of this.tileMeshes) delete mesh.userData.entrance;
+      this.applySelectionVisual();
+      // One shadow render once everything has landed, rather than 60 during the fly-in.
+      this.invalidateShadows();
+    }
   }
 
   /** Recomputes what's playable and whether the board is finished or stuck. */
@@ -171,8 +296,13 @@ export class Game {
 
     if (gameState.remaining === 0) {
       gameState.stuck = false;
-      gameState.screen = 'won';
-      eventBus.emit(Events.BOARD_CLEARED, { layoutId: gameState.layoutId });
+      gameState.boardsCompleted += 1;
+      this.setScreen('won');
+      this.startFinale();
+      eventBus.emit(Events.BOARD_CLEARED, {
+        layoutId: gameState.layoutId,
+        seed: gameState.seed,
+      });
       return;
     }
 
@@ -180,10 +310,10 @@ export class Game {
     // A dead end is only a loss once the reshuffles are gone: a reshuffle always
     // produces a solvable board, so while she has one the board is recoverable.
     if (gameState.stuck && gameState.shufflesLeft === 0) {
-      gameState.screen = 'no-moves';
+      this.setScreen('no-moves');
       eventBus.emit(Events.GAME_NO_MOVES, { remaining: gameState.remaining });
-    } else {
-      gameState.screen = 'board';
+    } else if (gameState.screen !== 'greeting') {
+      this.setScreen('board');
     }
   }
 
@@ -191,17 +321,105 @@ export class Game {
     return this.freeIds.has(id);
   }
 
+  /** Every screen change goes through here, so the HTML overlay always agrees. */
+  setScreen(screen) {
+    if (gameState.screen === screen) return;
+    gameState.screen = screen;
+    eventBus.emit(Events.SCREEN_CHANGED, { screen });
+    this.dirty = true;
+  }
+
+  /** Ask for one shadow re-render on the next frame. */
+  invalidateShadows() {
+    this.renderer.shadowMap.needsUpdate = true;
+    this.dirty = true;
+  }
+
   /**
-   * Lifts the selected tile clear of the board. Stopgap feedback so a tap visibly
-   * does something before milestone 04 builds the real, unmissable treatment.
+   * The gold rim and the glow pool that mark the selected tile. Built once and moved
+   * around, rather than created per selection.
+   */
+  buildSelectionMarkers() {
+    const rimGeometry = new THREE.BoxGeometry(
+      (TILE.width - TILE.gap) * SELECTION.rimScale,
+      TILE.thickness * SELECTION.rimHeightFactor,
+      (TILE.depth - TILE.gap) * SELECTION.rimScale
+    );
+    this.selectionRim = new THREE.Mesh(
+      rimGeometry,
+      new THREE.MeshBasicMaterial({ color: COLORS.gold })
+    );
+    this.selectionRim.visible = false;
+    this.scene.add(this.selectionRim);
+
+    const glowSize = TILE.width * SELECTION.glowScale;
+    this.selectionGlow = new THREE.Mesh(
+      new THREE.PlaneGeometry(glowSize, glowSize * (TILE.depth / TILE.width)),
+      new THREE.MeshBasicMaterial({
+        map: glowTexture(),
+        color: COLORS.gold,
+        transparent: true,
+        opacity: SELECTION.glowOpacity,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      })
+    );
+    this.selectionGlow.rotation.x = -Math.PI / 2;
+    this.selectionGlow.visible = false;
+    this.scene.add(this.selectionGlow);
+  }
+
+  /**
+   * ADR-0002 constraint 3: a selected tile changes on four channels at once — it
+   * lifts, gains a thick gold rim, pulses slowly, and casts a glow. Deliberately
+   * redundant, so no single channel has to carry it.
    */
   applySelectionVisual() {
+    const selected = gameState.selectedId;
+    for (const tile of gameState.tiles) {
+      const mesh = this.meshById.get(tile.id);
+      if (!mesh || this.entranceClock !== null) continue;
+      const base = latticeToWorld(tile).y;
+      mesh.position.y = selected === tile.id ? base + TILE.selectionLift : base;
+    }
+
+    const mesh = selected === null ? null : this.meshById.get(selected);
+    this.selectionRim.visible = Boolean(mesh);
+    this.selectionGlow.visible = Boolean(mesh);
+    if (mesh) {
+      this.selectionRim.position.copy(mesh.position);
+      this.selectionGlow.position.set(mesh.position.x, TABLE.y + 0.03, mesh.position.z);
+      this.pulseClock = 0;
+    }
+    this.dirty = true;
+  }
+
+  /** The slow pulse on the rim, and the brighter breathing of a hinted pair. */
+  updateSelectionPulse(delta) {
+    if (!this.selectionRim.visible) return;
+    this.pulseClock += delta;
+    const phase = Math.sin((this.pulseClock / SELECTION.pulsePeriod) * Math.PI * 2);
+    const scale = 1 + phase * SELECTION.pulseAmount;
+    this.selectionRim.scale.set(scale, 1, scale);
+    this.selectionGlow.material.opacity = SELECTION.glowOpacity * (0.65 + 0.35 * (phase + 1) / 2);
+    this.dirty = true;
+  }
+
+  /**
+   * Free tiles render bright, blocked tiles knocked back, hinted tiles brightest of
+   * all — carried on a per-tile vertex colour so all 144 tiles keep sharing one
+   * material (constraint 2: playability is visible without interaction).
+   */
+  applyTileShading() {
+    const hint = gameState.hintPair || [];
     for (const tile of gameState.tiles) {
       const mesh = this.meshById.get(tile.id);
       if (!mesh) continue;
-      const lifted = gameState.selectedId === tile.id;
-      const base = latticeToWorld(tile).y;
-      mesh.position.y = lifted ? base + TILE.selectionLift : base;
+      let brightness = this.freeIds.has(tile.id)
+        ? SELECTION.freeBrightness
+        : SELECTION.blockedBrightness;
+      if (hint.includes(tile.id)) brightness = SELECTION.hintBrightness;
+      setTileBrightness(mesh, brightness);
     }
     this.dirty = true;
   }
@@ -219,6 +437,9 @@ export class Game {
 
   handleTap(cssX, cssY) {
     if (gameState.screen !== 'board') return;
+    // The board is still dealing itself; tiles are mid-flight and tapping one would
+    // mean tapping a moving target.
+    if (!this.settled) return;
     // Taps are ignored while a mismatched pair is still on show, so a quick double
     // tap can't skip past the feedback and land somewhere unexpected.
     if (this.mismatchHold > 0) return;
@@ -278,20 +499,154 @@ export class Game {
   clearPair(a, b) {
     for (const tile of [a, b]) {
       tile.cleared = true;
+      // A tile in flight through its celebration shouldn't drag a shadow around the
+      // board behind it.
       const mesh = this.meshById.get(tile.id);
-      if (mesh) mesh.visible = false;
+      if (mesh) mesh.castShadow = false;
     }
+    this.invalidateShadows();
     gameState.selectedId = null;
     gameState.hintPair = null;
     this.hintHold = 0;
-    this.applySelectionVisual();
+    this.matchesThisBoard += 1;
 
+    this.startCelebration(a, b);
+    this.applySelectionVisual();
     this.refreshBoardState();
+    this.applyTileShading();
+
     eventBus.emit(Events.PAIR_MATCHED, {
       ids: [a.id, b.id],
       face: a.face,
       remaining: gameState.remaining,
+      matchNumber: this.matchesThisBoard,
     });
+    this.dirty = true;
+  }
+
+  /**
+   * Kicks off one of the eight celebrations. The tiles are already logically cleared
+   * — this is theatre over the top of a decision that has been made, so the board is
+   * never waiting on an animation and a tap during one is never ambiguous.
+   */
+  startCelebration(a, b) {
+    const meshes = [a, b].map((tile) => this.meshById.get(tile.id)).filter(Boolean);
+    if (meshes.length < 2) return;
+
+    const celebration = pickCelebration([a.face, b.face], this.lastCelebration);
+    this.lastCelebration = celebration.name;
+
+    const starts = meshes.map((mesh) => mesh.position.clone());
+    const mid = starts[0].clone().add(starts[1]).multiplyScalar(0.5);
+    const escalated = this.matchesThisBoard % CELEBRATION.escalateEvery === 0;
+
+    const shards = celebration.name === 'crumble'
+      ? meshes.flatMap((mesh) => buildShards(mesh, this.scene))
+      : [];
+
+    const fired = new Set();
+    this.celebrations.push({
+      celebration,
+      meshes,
+      starts,
+      mid,
+      shards,
+      elapsed: 0,
+      duration: CELEBRATION.duration,
+      escalated,
+      fired,
+    });
+
+    eventBus.emit(Events.FX_CELEBRATION, {
+      name: celebration.name,
+      escalated,
+      remaining: gameState.remaining,
+    });
+  }
+
+  updateCelebrations(delta) {
+    for (const run of this.celebrations) {
+      run.elapsed += delta;
+      const t = Math.min(1, run.elapsed / run.duration);
+      const ctx = {
+        meshes: run.meshes,
+        starts: run.starts,
+        mid: run.mid,
+        shards: run.shards,
+        spotlight: this.spotlight,
+        emit: (origin, options) => this.particles.emit(origin, options),
+        // Lets an animation fire a one-shot (a burst, a bang) at a moment in its
+        // timeline without it repeating every frame after that point.
+        once: (at) => {
+          if (t < at || run.fired.has(at)) return false;
+          run.fired.add(at);
+          return true;
+        },
+      };
+      run.celebration.run(ctx, t);
+
+      if (t >= 1) {
+        for (const mesh of run.meshes) {
+          mesh.visible = false;
+          mesh.scale.setScalar(1);
+          mesh.rotation.set(0, 0, 0);
+          mesh.position.copy(mesh.userData.homePosition || mesh.position);
+        }
+        for (const shard of run.shards) {
+          this.scene.remove(shard.mesh);
+          shard.mesh.geometry.dispose();
+        }
+        if (run.celebration.name === 'elvis-spotlight') this.spotlight.visible = false;
+        // An escalated match, or the last pair on the board, earns a bigger bang.
+        if (run.escalated && gameState.remaining > 0) {
+          this.particles.emit(run.mid, {
+            count: PARTICLES.burst * 2,
+            speed: 8,
+            spread: 1.5,
+            upward: 3,
+            colour: COLORS.gold,
+            lifespan: 1.9,
+          });
+        }
+      }
+    }
+    this.celebrations = this.celebrations.filter((run) => run.elapsed < run.duration);
+    this.dirty = true;
+  }
+
+  /** The board-clear finale: a long, loud, unmistakable well done. */
+  startFinale() {
+    this.finaleClock = 0;
+    eventBus.emit(Events.FX_FINALE, { layoutId: gameState.layoutId });
+  }
+
+  updateFinale(delta) {
+    const before = this.finaleClock;
+    this.finaleClock += delta;
+    const centre = this.cameraSystem.target.clone();
+
+    // Rolling volleys rather than one burst, so the celebration lasts as long as it
+    // takes to feel like a celebration.
+    const volley = 0.32;
+    const beforeCount = Math.floor(before / volley);
+    const nowCount = Math.floor(this.finaleClock / volley);
+    if (nowCount > beforeCount && this.finaleClock < CELEBRATION.finaleDuration) {
+      const colours = [COLORS.gold, COLORS.elvisRed, 0x7fb6ff, 0x8fe1b0, 0xfff3c4];
+      for (let n = 0; n < 3; n++) {
+        const origin = centre.clone().add(
+          new THREE.Vector3((Math.random() - 0.5) * 12, 2 + Math.random() * 5, (Math.random() - 0.5) * 8)
+        );
+        this.particles.emit(origin, {
+          count: Math.round(PARTICLES.finaleBurst / 3),
+          speed: 7 + Math.random() * 4,
+          spread: 1.3,
+          colour: colours[(nowCount + n) % colours.length],
+          lifespan: 2.2,
+          size: PARTICLES.size * 1.3,
+        });
+      }
+    }
+    if (this.finaleClock >= CELEBRATION.finaleDuration) this.finaleClock = null;
     this.dirty = true;
   }
 
@@ -319,6 +674,7 @@ export class Game {
     this.hintHold = TIMING.hintHold;
     eventBus.emit(Events.ASSIST_HINT, { pair: gameState.hintPair, left: gameState.hintsLeft });
     if (gameState.hintsLeft === 0) eventBus.emit(Events.ASSIST_EXHAUSTED, { assist: 'hint' });
+    this.applyTileShading();
     this.dirty = true;
     return { pair: gameState.hintPair, left: gameState.hintsLeft };
   }
@@ -345,6 +701,8 @@ export class Game {
     this.applySelectionVisual();
 
     this.refreshBoardState();
+    this.applyTileShading();
+    this.invalidateShadows();
     eventBus.emit(Events.ASSIST_SHUFFLE, { left: gameState.shufflesLeft });
     if (gameState.shufflesLeft === 0) eventBus.emit(Events.ASSIST_EXHAUSTED, { assist: 'shuffle' });
     this.dirty = true;
@@ -359,10 +717,42 @@ export class Game {
     this.dirty = true;
   }
 
-  newBoard({ layoutId = gameState.layoutId, seed = null } = {}) {
+  newBoard({ layoutId = gameState.layoutId, seed = null, screen = 'board' } = {}) {
+    const completed = gameState.boardsCompleted;
     this.loadLayout(layoutId, { seed });
+    gameState.boardsCompleted = completed;
+    this.setScreen(screen);
     eventBus.emit(Events.GAME_RESTART, { layoutId });
     this.dirty = true;
+  }
+
+  /**
+   * Deals a saved board back onto the table exactly as she left it. No entrance
+   * animation: this is the board she was already looking at, not a new one.
+   */
+  resumeBoard(board) {
+    const completed = gameState.boardsCompleted;
+    this.buildBoard(board.layoutId, board.tiles, { animate: false });
+    gameState.seed = board.seed ?? null;
+    gameState.hintsLeft = Number.isFinite(board.hintsLeft) ? board.hintsLeft : gameState.hintsLeft;
+    gameState.shufflesLeft = Number.isFinite(board.shufflesLeft)
+      ? board.shufflesLeft
+      : gameState.shufflesLeft;
+    gameState.boardsCompleted = completed;
+    // Re-derived rather than trusted from the save: freeness and the stuck check must
+    // reflect the rules as they are now, not as they were when it was written.
+    this.refreshBoardState();
+    this.applyTileShading();
+    this.invalidateShadows();
+    eventBus.emit(Events.SAVE_RESUMED, { remaining: gameState.remaining });
+    this.dirty = true;
+  }
+
+  /** Back to the front screen, leaving the board standing behind it. */
+  goHome() {
+    gameState.selectedId = null;
+    this.applySelectionVisual();
+    this.setScreen('greeting');
   }
 
   /** World-space bounds of the tiles, padded by the felt margin. */
@@ -379,7 +769,7 @@ export class Game {
     this.renderer.setSize(width, height, true);
     this.cameraSystem.frame(this.boardBounds(), width, height);
     this.fitShadowCamera();
-    this.dirty = true;
+    this.invalidateShadows();
   }
 
   fitShadowCamera() {
@@ -406,7 +796,15 @@ export class Game {
 
   /** True while anything needs per-frame updates — otherwise the loop idles. */
   get animating() {
-    return this.mismatchHold > 0 || this.hintHold > 0;
+    return (
+      this.mismatchHold > 0 ||
+      this.hintHold > 0 ||
+      this.entranceClock !== null ||
+      this.finaleClock !== null ||
+      this.celebrations.length > 0 ||
+      this.particles.active > 0 ||
+      gameState.selectedId !== null
+    );
   }
 
   tick(now) {
@@ -429,6 +827,15 @@ export class Game {
   }
 
   update(delta) {
+    if (this.entranceClock !== null) this.updateEntrance(delta);
+    if (this.celebrations.length > 0) this.updateCelebrations(delta);
+    if (this.finaleClock !== null) this.updateFinale(delta);
+    if (this.particles.active > 0) {
+      this.particles.update(delta);
+      this.dirty = true;
+    }
+    this.updateSelectionPulse(delta);
+
     // Timed holds run off the game clock rather than setTimeout, so advanceTime()
     // steps them deterministically in tests.
     if (this.mismatchHold > 0) {
@@ -442,6 +849,7 @@ export class Game {
       this.hintHold = Math.max(0, this.hintHold - delta);
       if (this.hintHold === 0) {
         gameState.hintPair = null;
+        this.applyTileShading();
         this.dirty = true;
       }
     }
@@ -481,7 +889,12 @@ export class Game {
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const hits = this.raycaster.intersectObjects(this.tileMeshes, false);
     for (const hit of hits) {
-      if (hit.object.visible) return hit.object.userData.tileId;
+      if (!hit.object.visible) continue;
+      // A cleared tile may still be flying through its celebration. It must not
+      // swallow a tap meant for whatever is underneath it.
+      const tile = gameState.tileById(hit.object.userData.tileId);
+      if (!tile || tile.cleared) continue;
+      return hit.object.userData.tileId;
     }
     return null;
   }
@@ -529,6 +942,7 @@ export class Game {
         dpr: this.renderer.getPixelRatio(),
       },
       camera: this.cameraSystem.snapshot(),
+      boardsCompleted: gameState.boardsCompleted,
       counts: {
         total: gameState.tiles.length,
         remaining: gameState.remaining,
@@ -569,3 +983,21 @@ export class Game {
 }
 
 const round = (n) => Math.round(n * 100) / 100;
+
+/** Soft radial glow for the pool of light under a selected tile. */
+function glowTexture() {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, 'rgba(255,255,255,0.95)');
+  gradient.addColorStop(0.45, 'rgba(255,255,255,0.35)');
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}

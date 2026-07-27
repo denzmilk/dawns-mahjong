@@ -9,7 +9,7 @@ class GameState {
   }
 
   reset(layoutId = LAYOUT_DEFAULT) {
-    this.screen = 'board'; // board | won | no-moves (greeting lands in milestone 04)
+    this.screen = 'board'; // greeting | board | won | no-moves
     this.layoutId = layoutId;
     this.seed = null;
     /**
@@ -28,6 +28,13 @@ class GameState {
     this.stuck = false;
     this.elapsed = 0;
   }
+
+  /**
+   * Boards she has finished, across every session. Deliberately outside reset():
+   * it is the one thing that carries between games, and starting a new board must
+   * not wipe it.
+   */
+  boardsCompleted = 0;
 
   get remaining() {
     return this.tiles.filter((t) => !t.cleared).length;

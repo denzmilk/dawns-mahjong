@@ -98,17 +98,21 @@ This game is deliberately **not**:
 
 ## Delivery order
 
+**The whole ladder is implemented as of 2026-07-27.** Every automated acceptance
+criterion is green (76 specs); what remains open across the milestones is Chris's
+hands-on sign-off, and Dawn's.
+
 Detailed milestone docs exist for the first three. The rest are listed here as the agreed order and get written as they come up (per the milestone-planning rule — later milestones are planned once the earlier ones land).
 
-1. **01 — Clean slate & the board** *(planned)* — mahjong runtime skeleton, fixed tilted camera, both layouts rendering as stacked 3D tiles with placeholder faces.
-2. **02 — Matching rules & a playable game** *(planned)* — free-tile logic, tap-to-match, solvable generation, win, dead-end, 10 hints + 3 reshuffles.
-3. **03 — Real tile faces** *(planned)* — slice the supplied sheet into an atlas, real faces on the tiles, felt-and-gold table.
-4. **04 — Built for a 90-year-old** — greeting screen with time-of-day + her name, huge type, unmissable selection state, dimmed unplayable tiles, big buttons, responsive from 8" to 12"+.
-5. **05 — Eight ways to clear a pair** — the randomised 3D celebration pool, particles, and the board-clear finale.
-6. **06 — Sound** — procedural click/chime/thud/lick and the mute toggle.
-7. **07 — Save & carry on** — versioned localStorage save, autosave after every move, resume prompt, boards-completed count.
-8. **08 — Elvis** — portraits on greeting/win, the 8 Elvis tile faces, the spotlight-and-rhinestones animation, palette accents.
-9. **09 — Onto her tablet** — installable PWA: web app manifest, service worker, offline play, "Install on this tablet" button.
+1. **01 — Clean slate & the board** *(built)* — mahjong runtime skeleton, fixed tilted camera, both layouts rendering as stacked 3D tiles with placeholder faces.
+2. **02 — Matching rules & a playable game** *(built)* — free-tile logic, tap-to-match, solvable generation, win, dead-end, 10 hints + 3 reshuffles.
+3. **03 — Real tile faces** *(built)* — slice the supplied sheet into an atlas, real faces on the tiles, felt-and-gold table.
+4. **04 — Built for a 90-year-old** *(built)* — greeting screen with time-of-day + her name, huge type, unmissable selection state, dimmed unplayable tiles, big buttons, responsive from 8" to 12"+.
+5. **05 — Eight ways to clear a pair** *(built)* — the randomised 3D celebration pool, particles, and the board-clear finale.
+6. **06 — Sound** *(built)* — procedural click/chime/thud/lick and the mute toggle.
+7. **07 — Save & carry on** *(built)* — versioned localStorage save, autosave after every move, resume prompt, boards-completed count.
+8. **08 — Elvis** *(built)* — portraits on greeting/win, the 8 Elvis tile faces, the spotlight-and-rhinestones animation, palette accents.
+9. **09 — Onto her tablet** *(built)* — installable PWA: web app manifest, service worker, offline play, "Install on this tablet" button.
 10. **10 — GitHub Pages deploy** *(done out of order, 2026-07-27)* — pulled forward from 09 so every review happens on the real URL on Dawn's tablet rather than on a desktop dev server. The public repo was created early for the same reason.
 
 ## Resolved decisions

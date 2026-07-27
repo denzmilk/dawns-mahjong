@@ -10,8 +10,12 @@
     />
     <meta name="theme-color" content="#12301F" />
     <meta name="description" content="Mahjong for Dawn." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Dawn's Mahjong</title>
     <link rel="icon" href="./favicon.svg" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
     <link
       rel="preload"
       href="./assets/fonts/atkinson-hyperlegible-700.woff2"
@@ -22,6 +26,103 @@
   </head>
   <body>
     <div id="game-container"></div>
+
+    <!-- Gold Greek-key frame, cropped straight out of Chris's tile sheet so the
+         frame and the tiles are unmistakably one set. -->
+    <div id="frame" aria-hidden="true">
+      <div class="frame-edge frame-top"></div>
+      <div class="frame-edge frame-bottom"></div>
+      <div class="frame-edge frame-left"></div>
+      <div class="frame-edge frame-right"></div>
+    </div>
+
+    <!-- In-game bar. Everything on it is at least 64dp tall. -->
+    <div id="hud" class="hidden">
+      <div id="tiles-left"><span id="tiles-left-count">72</span> tiles left</div>
+      <div id="hud-buttons">
+        <button id="btn-hint" class="hud-button" type="button">
+          <span class="hud-icon">💡</span>
+          <span class="hud-label">Help me<span id="hint-count" class="hud-count">10</span></span>
+        </button>
+        <button id="btn-shuffle" class="hud-button" type="button">
+          <span class="hud-icon">🔀</span>
+          <span class="hud-label">Mix up<span id="shuffle-count" class="hud-count">3</span></span>
+        </button>
+        <button id="btn-sound" class="hud-button" type="button">
+          <span class="hud-icon" id="sound-icon">🔊</span>
+          <span class="hud-label">Sound</span>
+        </button>
+        <button id="btn-home" class="hud-button" type="button">
+          <span class="hud-icon">🏠</span>
+          <span class="hud-label">Menu</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- A gentle nudge when the board has no moves left but she still has mixes. -->
+    <div id="stuck-nudge" class="hidden">
+      No moves left, Dawn — press <b>Mix up</b> to shuffle the tiles.
+    </div>
+
+    <!-- Greeting -->
+    <section id="greeting" class="screen">
+      <div class="screen-inner greeting-layout">
+        <div class="greeting-portrait">
+          <img id="greeting-hero" alt="Dawn with Elvis" />
+        </div>
+        <div class="greeting-words">
+          <h1 id="greeting-line">Hello, Dawn</h1>
+          <p id="greeting-sub">Fancy a game of mahjong?</p>
+          <div class="button-stack">
+            <button id="btn-resume" class="big-button primary hidden" type="button">
+              Carry on with your game
+            </button>
+            <button id="btn-play" class="big-button primary" type="button">Start a new game</button>
+          </div>
+          <div class="board-choice">
+            <span class="board-choice-label">Board</span>
+            <button class="choice-button" data-layout="easy-72" type="button">Easy</button>
+            <button class="choice-button" data-layout="turtle-144" type="button">Big turtle</button>
+          </div>
+          <button id="btn-install" class="text-button hidden" type="button">
+            Put this on my tablet
+          </button>
+          <p id="install-help" class="install-help hidden">
+            In your browser menu, choose <b>Add page to</b> → <b>Home screen</b>.
+          </p>
+          <p id="boards-done" class="boards-done hidden"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Won -->
+    <section id="won" class="screen hidden">
+      <div class="screen-inner end-layout">
+        <img id="won-portrait" class="end-portrait" alt="Elvis" />
+        <h1>Well done, Dawn!</h1>
+        <p id="won-sub">You cleared the whole board.</p>
+        <div class="button-stack">
+          <button id="btn-play-again" class="big-button primary" type="button">Play another</button>
+          <button id="btn-won-home" class="big-button" type="button">Back to the start</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- No moves left -->
+    <section id="no-moves" class="screen hidden">
+      <div class="screen-inner end-layout">
+        <img id="stuck-portrait" class="end-portrait" alt="Elvis" />
+        <h1>No more moves this time</h1>
+        <p>Bad luck, Dawn — the tiles didn't fall your way.</p>
+        <div class="button-stack">
+          <button id="btn-fresh-board" class="big-button primary" type="button">
+            Try a fresh board
+          </button>
+          <button id="btn-stuck-home" class="big-button" type="button">Back to the start</button>
+        </div>
+      </div>
+    </section>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

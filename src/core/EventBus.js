@@ -59,6 +59,22 @@ export const Events = {
   GAME_START: 'game:start',
   GAME_NO_MOVES: 'game:no-moves',
   GAME_RESTART: 'game:restart',
+  // ui:* — the overlay asks; the game decides. Keeps the DOM and the scene from
+  // importing each other.
+  UI_START_BOARD: 'ui:start-board',
+  UI_RESUME: 'ui:resume',
+  UI_HINT: 'ui:hint',
+  UI_SHUFFLE: 'ui:shuffle',
+  UI_NEW_GAME: 'ui:new-game',
+  UI_HOME: 'ui:home',
+  UI_SOUND_TOGGLED: 'ui:sound-toggled',
+  UI_LAYOUT_CHOSEN: 'ui:layout-chosen',
+  UI_INSTALL: 'ui:install',
+  // screen:*
+  SCREEN_CHANGED: 'screen:changed',
+  // fx:*
+  FX_CELEBRATION: 'fx:celebration',
+  FX_FINALE: 'fx:finale',
   // view:*
   VIEW_RESIZED: 'view:resized',
   VIEW_RENDER_REQUESTED: 'view:render-requested',

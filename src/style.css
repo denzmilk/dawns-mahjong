@@ -21,23 +21,27 @@
 :root {
   --felt: #12301f;
   --felt-dark: #0a1a11;
+  --felt-deep: #071410;
   --gold: #e8c547;
+  --gold-dim: #a8892a;
   --ivory: #f7f2e4;
   --cream: #faf6ea;
   --elvis-red: #c1272d;
+  --elvis-pink: #f2a0c0;
 
   /* Type scale floors from ADR-0002 constraint 4. Nothing in this game may set a
-     size below --text-body. */
-  --text-body: 24px;
-  --text-button: 32px;
-  --text-greeting: 76px;
+     size below --text-body. Sizes grow with the viewport but never shrink past the
+     floor, so an 8" tablet is still readable. */
+  --text-body: max(24px, 2.2vh);
+  --text-button: max(32px, 3.4vh);
+  --text-greeting: max(52px, 7.5vh);
+  --text-hud: max(26px, 3vh);
   --touch-min: 64px;
+  --frame-thickness: max(14px, 1.6vh);
 
   font-family: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: var(--text-body);
   color: var(--cream);
-  /* Suppress the Android/iOS gestures that could strand the view. The JS side
-     cancels the events; this stops the browser acting before they fire. */
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -66,6 +70,10 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+.hidden {
+  display: none !important;
+}
+
 #game-container {
   position: fixed;
   inset: 0;
@@ -77,4 +85,366 @@ body {
   width: 100%;
   height: 100%;
   touch-action: none;
+}
+
+/* ---------- the gold frame, cropped from the tile sheet ---------- */
+
+#frame {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  /* Above the full-screen overlays: it frames the whole game, screens included. */
+  z-index: 30;
+}
+
+.frame-edge {
+  position: absolute;
+  background-image: var(--frame-image);
+  /* background-size / position / repeat are set from JS in px — see Ui.layoutFrame. */
+  opacity: 0.92;
+}
+
+.frame-top,
+.frame-bottom {
+  left: 0;
+  right: 0;
+  height: var(--frame-thickness);
+}
+
+.frame-top {
+  top: 0;
+}
+.frame-bottom {
+  bottom: 0;
+  transform: scaleY(-1);
+}
+
+.frame-left,
+.frame-right {
+  top: 0;
+  bottom: 0;
+  width: var(--frame-thickness);
+}
+
+.frame-left {
+  left: 0;
+}
+.frame-right {
+  right: 0;
+  transform: scaleX(-1);
+}
+
+/* ---------- in-game bar ---------- */
+
+#hud {
+  /* The bar spans the top of the screen, so it must not swallow taps meant for the
+     tiles beneath it — only its buttons are interactive. */
+  pointer-events: none;
+  position: fixed;
+  top: var(--frame-thickness);
+  left: var(--frame-thickness);
+  right: var(--frame-thickness);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 0.8rem;
+  font-size: var(--text-hud);
+}
+
+#tiles-left {
+  font-weight: 700;
+  color: var(--cream);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+#tiles-left-count {
+  color: var(--gold);
+  font-size: 1.35em;
+}
+
+#hud-buttons {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.hud-button {
+  pointer-events: auto;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  padding: 0.35rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  font-family: inherit;
+  font-size: max(19px, 2vh);
+  font-weight: 700;
+  color: var(--cream);
+  background: rgba(9, 26, 17, 0.88);
+  border: 3px solid var(--gold-dim);
+  border-radius: 14px;
+  cursor: pointer;
+  line-height: 1.05;
+}
+
+.hud-button:active {
+  background: var(--gold);
+  color: var(--felt);
+  transform: translateY(2px);
+}
+
+.hud-button[disabled] {
+  opacity: 0.4;
+  border-color: #4a4636;
+}
+
+.hud-icon {
+  font-size: 1.5em;
+}
+
+.hud-count {
+  display: inline-block;
+  margin-left: 0.35em;
+  color: var(--gold);
+}
+
+.hud-button[disabled] .hud-count {
+  color: inherit;
+}
+
+#stuck-nudge {
+  pointer-events: none;
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--frame-thickness) + 1.2rem);
+  transform: translateX(-50%);
+  z-index: 10;
+  max-width: 80vw;
+  padding: 0.9rem 1.6rem;
+  text-align: center;
+  font-size: var(--text-body);
+  color: var(--felt);
+  background: var(--gold);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- full screens ---------- */
+
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--frame-thickness) + 1.5vh) calc(var(--frame-thickness) + 2vw);
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(28, 74, 47, 0.96), rgba(7, 20, 16, 0.99) 78%),
+    var(--felt-deep);
+  animation: screen-in 0.35s ease-out;
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.screen-inner {
+  width: 100%;
+  max-width: 1500px;
+}
+
+.greeting-layout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.5rem, 4vw, 4rem);
+}
+
+.greeting-portrait {
+  flex: 0 0 auto;
+  width: min(38vw, 46vh);
+  aspect-ratio: 1 / 1;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 6px solid var(--gold);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+  background: var(--felt);
+}
+
+.greeting-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Framed on the two faces: the generated background has garbled poster text in
+     it, and a wide crop would put nonsense words on the greeting screen. */
+  object-position: 42% 28%;
+  transform: scale(1.22);
+}
+
+.greeting-words {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#greeting-line {
+  font-size: var(--text-greeting);
+  line-height: 1.05;
+  color: var(--cream);
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+#greeting-sub {
+  margin-top: 0.6rem;
+  font-size: var(--text-button);
+  color: var(--gold);
+}
+
+.end-layout {
+  text-align: center;
+}
+
+.end-layout h1 {
+  font-size: var(--text-greeting);
+  line-height: 1.05;
+}
+
+.end-layout p {
+  margin-top: 0.7rem;
+  font-size: var(--text-button);
+  color: var(--gold);
+}
+
+.end-portrait {
+  width: min(30vh, 40vw);
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 6px solid var(--gold);
+  margin-bottom: 1.5vh;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- buttons ---------- */
+
+.button-stack {
+  margin-top: 2.2vh;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4vh;
+  align-items: stretch;
+}
+
+.end-layout .button-stack {
+  align-items: center;
+}
+
+.big-button {
+  min-height: max(var(--touch-min), 8.5vh);
+  padding: 0.6rem 2rem;
+  font-family: inherit;
+  font-size: var(--text-button);
+  font-weight: 700;
+  color: var(--cream);
+  background: rgba(9, 26, 17, 0.9);
+  border: 4px solid var(--gold-dim);
+  border-radius: 20px;
+  cursor: pointer;
+  min-width: min(560px, 70vw);
+}
+
+.big-button.primary {
+  color: var(--felt);
+  background: linear-gradient(180deg, #f4d666, var(--gold));
+  border-color: #fff0b8;
+  box-shadow: 0 6px 0 var(--gold-dim), 0 14px 30px rgba(0, 0, 0, 0.45);
+}
+
+.big-button:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--gold-dim);
+}
+
+.board-choice {
+  margin-top: 2vh;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.board-choice-label {
+  font-size: var(--text-body);
+  color: rgba(250, 246, 234, 0.75);
+}
+
+.choice-button {
+  min-height: var(--touch-min);
+  padding: 0.4rem 1.4rem;
+  font-family: inherit;
+  font-size: max(22px, 2.4vh);
+  font-weight: 700;
+  color: var(--cream);
+  background: rgba(9, 26, 17, 0.9);
+  border: 3px solid var(--gold-dim);
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.choice-button[aria-pressed='true'] {
+  color: var(--felt);
+  background: var(--gold);
+  border-color: #fff0b8;
+}
+
+.text-button {
+  margin-top: 2vh;
+  min-height: var(--touch-min);
+  padding: 0.4rem 0.2rem;
+  font-family: inherit;
+  font-size: var(--text-body);
+  font-weight: 700;
+  color: var(--gold);
+  background: none;
+  border: none;
+  border-bottom: 3px solid var(--gold-dim);
+  cursor: pointer;
+}
+
+.install-help,
+.boards-done {
+  margin-top: 1.2vh;
+  font-size: max(20px, 2vh);
+  color: rgba(250, 246, 234, 0.7);
+}
+
+/* Portrait tablets: stack the greeting rather than squeezing it. */
+@media (orientation: portrait) {
+  .greeting-layout {
+    flex-direction: column;
+    gap: 2vh;
+  }
+
+  .greeting-portrait {
+    width: min(62vw, 34vh);
+  }
+
+  .greeting-words {
+    text-align: center;
+  }
+
+  .board-choice,
+  .button-stack {
+    align-items: center;
+    justify-content: center;
+  }
 }

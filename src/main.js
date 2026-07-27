@@ -2,6 +2,13 @@ import './style.css';
 import { Game } from './core/Game.js';
 import { LAYOUT_DEFAULT } from './core/Constants.js';
 import { LAYOUT_IDS } from './board/Layouts.js';
+import { loadTileAtlas } from './assets/TileSheet.js';
+import { Ui } from './ui/Ui.js';
+import { Events, eventBus } from './core/EventBus.js';
+import { gameState } from './core/GameState.js';
+import { AudioSystem } from './systems/AudioSystem.js';
+import { SaveSystem } from './systems/SaveSystem.js';
+import { registerServiceWorker, watchForInstallPrompt } from './systems/InstallSystem.js';
 
 const container = document.getElementById('game-container');
 
@@ -13,18 +20,118 @@ const requested = params.get('layout');
 const layoutId = LAYOUT_IDS.includes(requested) ? requested : LAYOUT_DEFAULT;
 const seed = params.has('seed') ? Number(params.get('seed')) : null;
 
-const game = new Game(container, { layoutId, seed: Number.isFinite(seed) ? seed : null });
+boot();
 
-suppressUnwantedGestures();
-installTestHooks(game);
+async function boot() {
+  // The tile sheet is cropped into its atlas before the first frame, so she never
+  // sees a board of blank tiles pop into artwork.
+  let atlasCanvas = null;
+  try {
+    atlasCanvas = await loadTileAtlas();
+  } catch (error) {
+    // Degrade to the placeholder atlas rather than a blank screen: an ugly board is
+    // still a playable board.
+    console.error('tile sheet failed to load, falling back to placeholder faces:', error);
+  }
 
-// Fonts settle before anything measures text, so tests never race the layout.
-Promise.resolve(document.fonts ? document.fonts.ready : null).then(() => {
-  game.requestRender();
-  requestAnimationFrame(() => {
-    window.__ready = true;
+  // A layout or seed in the URL means a developer or a test asked for a specific
+  // board, so the front screen is skipped and play starts immediately. Dawn opens
+  // the plain URL and always gets greeted.
+  const straightToBoard = params.has('layout') || params.has('seed');
+
+  const game = new Game(container, {
+    layoutId,
+    seed: Number.isFinite(seed) ? seed : null,
+    atlasCanvas,
   });
-});
+
+  const save = new SaveSystem();
+  const audio = new AudioSystem({ muted: save.muted });
+  gameState.boardsCompleted = save.boardsCompleted;
+
+  const ui = new Ui({ playerName: 'Dawn' });
+  wireUi(game, ui, save, audio);
+
+  if (straightToBoard) {
+    ui.showScreen(gameState.screen);
+  } else {
+    // She always lands on the greeting, with "carry on" offered only when there is
+    // genuinely a half-finished board to carry on with.
+    if (save.preferredLayout) ui.setLayoutChoice(save.preferredLayout);
+    ui.setResumeAvailable(save.hasResumableBoard, resumeLabel(save));
+    ui.setBoardsCompleted(save.boardsCompleted);
+    ui.setMuted(save.muted);
+    game.goHome();
+    ui.showScreen(gameState.screen);
+  }
+
+  suppressUnwantedGestures();
+  installTestHooks(game, ui, save, audio);
+  watchForInstallPrompt(ui);
+  registerServiceWorker();
+
+  // Fonts settle before anything measures text, so tests never race the layout.
+  await (document.fonts ? document.fonts.ready : Promise.resolve());
+  game.requestRender();
+
+  // Ready means "the board has finished dealing itself and can be played", not
+  // merely "a frame was drawn" — otherwise a tap (or a test) lands on tiles that
+  // are still in flight.
+  await new Promise((resolve) => {
+    const check = () => (game.settled ? resolve() : requestAnimationFrame(check));
+    check();
+  });
+  window.__ready = true;
+}
+
+/**
+ * The overlay asks, the game answers. Buttons emit ui:* events and this is the only
+ * place that turns them into game actions — so the DOM never reaches into the scene.
+ */
+function wireUi(game, ui, save, audio) {
+  eventBus.on(Events.UI_START_BOARD, ({ layoutId: chosen }) => {
+    game.newBoard({ layoutId: chosen });
+    game.setScreen('board');
+    save.saveBoard();
+  });
+
+  eventBus.on(Events.UI_RESUME, () => {
+    const board = save.savedBoard;
+    if (!board) return;
+    game.resumeBoard(board);
+    game.setScreen('board');
+  });
+
+  eventBus.on(Events.UI_HINT, () => game.hint());
+  eventBus.on(Events.UI_SHUFFLE, () => game.shuffle());
+  eventBus.on(Events.UI_HOME, () => {
+    game.goHome();
+    ui.setResumeAvailable(save.hasResumableBoard, resumeLabel(save));
+  });
+  eventBus.on(Events.UI_LAYOUT_CHOSEN, ({ layoutId: chosen }) => save.setPreferredLayout(chosen));
+  eventBus.on(Events.UI_SOUND_TOGGLED, () => save.setMuted(audio.toggleMuted()));
+
+  // Autosave after anything that changes the board. Cheap (one localStorage write of
+  // a few KB) and it means the game survives the tablet being closed mid-pair.
+  for (const event of [Events.PAIR_MATCHED, Events.ASSIST_HINT, Events.ASSIST_SHUFFLE]) {
+    eventBus.on(event, () => save.saveBoard());
+  }
+
+  eventBus.on(Events.PAIR_MATCHED, () => ui.refreshHud());
+  eventBus.on(Events.BOARD_CLEARED, () => {
+    const completed = save.recordBoardCompleted();
+    gameState.boardsCompleted = completed;
+    ui.setBoardsCompleted(completed);
+  });
+  eventBus.on(Events.GAME_NO_MOVES, () => save.clearBoard());
+}
+
+function resumeLabel(save) {
+  const board = save.savedBoard;
+  if (!board) return '';
+  const left = board.tiles.filter((t) => !t.cleared).length;
+  return `Carry on — ${left} tiles left`;
+}
 
 /**
  * ADR-0002 constraint 1: a single tap is the whole control scheme. These are the
@@ -51,12 +158,15 @@ function suppressUnwantedGestures() {
   document.addEventListener('wheel', cancel, { passive: false });
 }
 
-function installTestHooks(game) {
+function installTestHooks(game, ui, save, audio) {
   window.render_game_to_text = () => game.snapshot();
   window.advanceTime = (seconds) => game.advanceTime(seconds);
 
   window.__debug = {
     game,
+    ui,
+    save,
+    audio,
 
     pickAt: (x, y) => game.pickAt(x, y),
 
@@ -66,6 +176,14 @@ function installTestHooks(game) {
     shuffle: () => game.shuffle(),
     newBoard: (options) => game.newBoard(options),
     tap: (x, y) => game.handleTap(x, y),
+    /** Select by tile id, for tests that don't care about screen coordinates. */
+    selectById: (id) => {
+      const tile = gameState.tileById(id);
+      if (tile) game.selectTile(tile);
+      return game.snapshot();
+    },
+    setScreen: (screen) => game.setScreen(screen),
+    home: () => game.goHome(),
 
     /**
      * Loads an arbitrary board, bypassing generation. Tests use it to set up
@@ -75,7 +193,8 @@ function installTestHooks(game) {
      */
     loadFixture(tiles, { layoutId = 'easy-72', assists = null } = {}) {
       const withIds = tiles.map((t, i) => ({ id: i, cleared: false, ...t }));
-      game.buildBoard(layoutId, withIds);
+      // No entrance animation: a fixture is a board a test wants to act on now.
+      game.buildBoard(layoutId, withIds, { animate: false });
       // Assists are reset by building a board, so they are applied afterwards —
       // and the board state is re-derived, because whether a stuck board is a loss
       // depends on how many reshuffles are left.

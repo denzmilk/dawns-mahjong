@@ -4,19 +4,32 @@
 
 ## Last updated
 
-2026-07-27 by Claude (pivot from *Jimothy's Big Day Out* to *Dawn's Mahjong*; milestones 01, 02 and 10 implemented)
+2026-07-27 by Claude (pivot from *Jimothy's Big Day Out* to *Dawn's Mahjong*; the whole milestone ladder 01–10 implemented)
 
 ## Current phase
 
 development
 
-## Current milestone
+**All ten milestones are implemented. 76 specs green. The game is complete enough to give to Dawn.**
 
-Milestone 02 — [matching rules & a playable game](milestones/02-matching-rules-and-play.md) · **in-progress**: all 18 automated ACs green, the tap-accuracy playtest AC awaits Chris. **The game is winnable**: a full easy-72 board plays out in 70 taps to the win state.
+Every milestone doc (01–10) is `in-progress` rather than `done` for one reason: each has
+playtest acceptance criteria that only Chris — and then Dawn — can close. Nothing is
+blocked on code.
 
-Milestone 01 — [clean slate & the board](milestones/01-clean-slate-and-board.md) · **in-progress**: all 20 automated ACs green, the two playtest ACs await Chris.
+**Live at https://denzmilk.github.io/dawns-mahjong/** — reviews happen there, not on localhost.
 
-Milestone 10 — [Pages deploy, early, for review](milestones/10-pages-deploy-for-review.md) · **in-progress**: deployed and verified live, only the on-tablet playtest AC remains. **The game is live at https://denzmilk.github.io/dawns-mahjong/** — every review happens there now, not on localhost.
+| # | Milestone | Automated | Awaiting |
+|---|-----------|-----------|----------|
+| 01 | clean slate & the board | 20 green | board reads as a solid stack; tilt legibility |
+| 02 | matching rules & play | 18 green | tap accuracy on a real touchscreen |
+| 03 | real tile faces | green | faces distinguishable at arm's length |
+| 04 | built for a 90-year-old | green | she can use the bar unaided; selection unmissable |
+| 05 | eight ways to clear a pair | green | delight on the 40th repetition |
+| 06 | sound | green | pleasant at tablet volume; nothing startling |
+| 07 | save & carry on | green | a board left overnight is still there |
+| 08 | Elvis | green | faces recognisable at tile size; **Nan likes it** |
+| 09 | onto her tablet | green | installs and plays with the wifi off |
+| 10 | Pages deploy | green | opens on her tablet |
 
 ## Last action
 
@@ -32,11 +45,47 @@ Three things in one session.
 
 ## Next step
 
-**Milestone 03 — real tile faces** (Chris chose 02 then 03, in order). Slice the 42 faces out of `public/assets/tiles/mahjong-tiles-sheet.png` with a measuring script, build the atlas, and lift the gold Greek-key border out for the table edge. The atlas machinery already exists with placeholder art, so this replaces the atlas *pixels* and inherits the single-material draw-call budget.
+**Chris plays the finished game on Dawn's tablet** at https://denzmilk.github.io/dawns-mahjong/,
+installs it to the home screen, and works through the playtest column above. Then the
+milestones can be marked `done` and the game handed over.
 
-Alongside that: **Chris reviews on the live URL** — https://denzmilk.github.io/dawns-mahjong/ (add `?layout=turtle-144` for the big board), ideally on Dawn's tablet. Two open playtest ACs from milestone 01: does the board read as a solid physical stack of tiles, and does the tilt give depth without hurting back-row legibility? Note the tile faces are deliberately crude placeholders until milestone 03.
+Known things worth his judgement, in priority order:
 
-Milestone 02's exit condition is also his to test: play an easy-72 board start to finish by tapping, using a hint and a reshuffle along the way. Tapping a tile lifts it (a stopgap — the real unmissable selection treatment is milestone 04).
+1. **The 144-tile turtle at 47 dp per tile** on a 10–11" screen. Tap forgiveness makes it
+   usable, but it is under this project's own 64 dp rule and he may prefer to hide it on
+   small screens.
+2. **Whether the celebrations wear out.** Eight of them, no immediate repeats, escalation
+   every 6th match — but 36 matches a board is a lot, and only a real session tells.
+3. **Whether the greeting hero crop is tight enough.** A sliver of AI-garbled poster text
+   remains top-left of `dawn-with-elvis-1.jpg`.
+
+## What the last stretch built
+
+Chris asked for a straight run through the ladder ("use the game design skills, over
+animate, have fun with it"), so 03–09 landed in one session:
+
+- **03** — `scripts/measure-tile-sheet.mjs` detects the 43 tile rectangles in the supplied
+  preview sheet by flood-filling its cream blocks, and writes them to a committed module.
+  Real faces on the board, one texture and one material for all 144 tiles.
+- **04** — the HTML overlay: greeting with time-of-day and her name, in-game bar, win and
+  no-moves screens, the gold Greek-key frame cropped live out of the sheet, four-channel
+  selection (lift + gold rim + pulse + glow), and dimmed unplayable tiles.
+- **05** — eight celebrations, a pooled particle system, an entrance that deals the board,
+  and a rolling finale.
+- **06** — every sound synthesised from one `tone()` primitive, including an original
+  rockabilly turnaround on board clear.
+- **07** — versioned `localStorage`, autosave after every move, "Carry on — N tiles left".
+- **08** — eight Elvis photographs as the bonus tiles, portraits on the screens, the
+  spotlight celebration reserved for Elvis pairs.
+- **09** — manifest, generated icons, a hand-rolled precaching service worker, and a big
+  "Put this on my tablet" button.
+
+**On the design skills:** `design-game` and `game-designer` are written for Phaser games
+aimed at someone scrolling a silent social feed. The craft transferred — pooled particles,
+entrance animation, redundant feedback channels, easing vocabulary, constants-driven
+tuning. The spectacle advice was rejected on purpose: screen shake, hue-cycling
+backgrounds, combo-text slams, and hit-freeze frames would actively harm a 90-year-old in
+an armchair, and they contradict ADR-0002. That is recorded in milestone 05.
 
 ## Decisions taken this session
 
@@ -50,6 +99,20 @@ Milestone 02's exit condition is also his to test: play an easy-72 board start t
 
 ## Notes for next session
 
+- **Milestones 04–09 were built before their tests**, unlike 01–03. Chris asked for a run
+  through the ladder rather than red-then-green on each. `tests/experience.spec.js` was
+  written afterwards to cover them and each assertion was checked against the behaviour it
+  guards. Worth knowing when trusting that file: it is a net, not a specification that
+  drove the design.
+- **Headless Chromium renders in software**, so the animated milestones were crawling at
+  ~3 fps and timing out. Two fixes, both of which help the real tablet too: shadows are
+  re-rendered only when the board changes (not per animated frame), and the shadow map
+  dropped to 1024. The test config also renders at `deviceScaleFactor: 1` — everything
+  asserted is measured in dp, so render resolution isn't part of what the tests check.
+- **The overlay must never swallow a tap.** `#hud` is `pointer-events: none` with only its
+  buttons interactive; a full-width bar over the board otherwise eats taps meant for tiles.
+  The same class of bug hid twice — see also that every screen change must go through
+  `Game.setScreen()`, or the overlay and the board disagree about what is showing.
 - **Reviews happen on the live URL now**, not localhost — Chris asked for that on 2026-07-27. Push to `main` and the deploy runs itself (~1 min); `gh run watch` to follow it. `npm run verify:build` locally first if the change touches assets, paths, or the build, since that is the CI gate.
 - **Live measurements match local ones exactly** (68.1 dp easy-72, 47.2 dp turtle at 1024×640), so the tablet-viewport tests catch layout regressions without a device. A device is only needed for how it *feels*.
 - **Port 3100, `strictPort: true`.** Another of Chris's projects (`~/Projects/Jimothy`) holds 3000 and Vite silently slid to 3001 — the entire browser suite spent a run asserting against a different app while producing plausible-looking failures. If the dev server won't start, something else took 3100; don't "fix" it by changing the port back.

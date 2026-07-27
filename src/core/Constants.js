@@ -97,7 +97,10 @@ export const LIGHTING = {
 export const RENDER = {
   // Retina tablets would otherwise render 3× the pixels for no visible gain.
   maxPixelRatio: 2,
-  shadowMapSize: 2048,
+  // 1024 rather than 2048: the shadow map is re-rendered with every board change and
+  // 144 casters at 2048 was the single most expensive thing in the frame. At this
+  // size the layer-separation shadows still read cleanly.
+  shadowMapSize: 1024,
   antialias: true,
 };
 
@@ -122,6 +125,90 @@ export const INPUT = {
   // range — an ambiguous near-miss does nothing rather than guessing. This is what
   // makes the 144-tile turtle usable at 47 dp per tile on a 10–11" tablet.
   tapForgivenessPx: 16,
+};
+
+export const SELECTION = {
+  // ADR-0002 constraint 3: the selected tile changes on four channels at once —
+  // lift, a thick gold rim, a slow pulse, and a glow beneath. Redundant on
+  // purpose: no single channel has to carry it for 90-year-old eyes on a glossy
+  // screen in a lit room.
+  rimScale: 1.18,
+  // The rim box is deliberately SHORTER than the tile so its top sits just below the
+  // tile's face: it reads as a thick gold ledge around the tile, instead of a gold
+  // slab covering the artwork.
+  rimHeightFactor: 0.92,
+  glowScale: 2.2,
+  glowOpacity: 0.5,
+  pulsePeriod: 1.5,
+  pulseAmount: 0.06,
+  // Unplayable tiles are visibly knocked back so "what can I tap?" is answered by
+  // the render itself (constraint 2). Not so dark that the artwork is lost.
+  // 0.48, not 0.62: at 0.62 the difference measured only 19% on screen once lighting
+  // was applied, which is not the "answered at a glance" the ADR asks for.
+  blockedBrightness: 0.48,
+  freeBrightness: 1,
+  hintBrightness: 1.25,
+};
+
+export const ENTRANCE = {
+  // Tiles fly in and stack themselves at the start of a board. Kept brief — she
+  // should never be made to wait to play, and the 144-tile turtle has to finish
+  // dealing in about a second too.
+  duration: 0.45,
+  stagger: 0.004,
+  dropHeight: 9,
+  spread: 3.5,
+};
+
+export const CELEBRATION = {
+  // Eight of them, picked at random with no immediate repeat, because clearing a
+  // pair is the whole reward loop and the same flourish 36 times is wallpaper.
+  duration: 1.05,
+  finaleDuration: 2.6,
+  // Every Nth match gets the bigger treatment.
+  escalateEvery: 6,
+  liftHeight: 5.5,
+  shardGrid: 3,
+  spinTurns: 2.5,
+};
+
+export const PARTICLES = {
+  // Pooled and capped: create/destroy churn per burst is what drops frames on a
+  // mid-range tablet GPU.
+  poolSize: 900,
+  burst: 46,
+  finaleBurst: 240,
+  size: 0.3,
+  gravity: -7.5,
+  drag: 0.86,
+  lifespan: 1.5,
+};
+
+export const AUDIO = {
+  masterVolume: 0.55,
+  // A pentatonic run, so the match chime rising as the board empties can never land
+  // on a sour interval.
+  chimeScale: [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51],
+  // An original rockabilly turnaround for the board clear: [frequency, start, decay].
+  // Deliberately not a transcription of any Elvis song — see docs/tech.md.
+  lick: [
+    [392, 0, 0.16],
+    [493.88, 0.11, 0.16],
+    [587.33, 0.22, 0.16],
+    [659.25, 0.33, 0.22],
+    [587.33, 0.5, 0.14],
+    [493.88, 0.61, 0.14],
+    [392, 0.72, 0.3],
+    [783.99, 0.95, 0.5],
+  ],
+};
+
+export const SAVE = {
+  key: 'dawns-mahjong/v1',
+  // Bump only for a breaking change to the shape. An unrecognised version is
+  // discarded rather than migrated — one player, one device, and a mis-migrated board
+  // would be worse than a fresh one.
+  version: 1,
 };
 
 export const TIMING = {
@@ -164,9 +251,31 @@ export const FACE_LABELS = {
   elvis: 'E',
 };
 
+// The eight Elvis photographs that replace the traditional flowers and seasons.
+// Chosen for faces and strong silhouettes: at ~80 px on a tile, a busy full-length
+// shot is a grey smudge. focusY biases the square crop up or down the photo so the
+// crop lands on him rather than on a microphone stand.
+export const ELVIS_TILE_PHOTOS = [
+  { file: 'publicity-1956.jpg', focusY: 0.36 },
+  { file: 'love-me-tender-1956.jpg', focusY: 0.32 },
+  { file: 'young-elvis.jpg', focusY: 0.34 },
+  { file: 'colour-1970.jpg', focusY: 0.3 },
+  { file: 'jailhouse-rock.jpg', focusY: 0.28 },
+  { file: 'publicity-still-1956.jpg', focusY: 0.3 },
+  { file: 'harley-1956.jpg', focusY: 0.34 },
+  { file: 'tv-debut-1956.jpg', focusY: 0.3 },
+];
+
 export const ATLAS = {
   columns: 7,
-  cellSize: 128,
+  // Cells follow the tile's own proportions (the sheet's faces are ~79 × 99), so a
+  // face is never stretched onto the tile top.
+  cellWidth: 128,
+  cellHeight: 160,
+  // Faces are drawn inset by this much, on a bed of tile cream, so neighbouring
+  // cells can't bleed into each other once the texture is mipmapped and viewed at
+  // an angle.
+  padding: 5,
   // One extra cell of flat ivory that every tile's sides and back point at, so
   // all 144 tiles can share a single material and a single texture.
   sideCellIndex: FACES.length,
