@@ -51,10 +51,11 @@ export const CAMERA = {
 };
 
 export const TABLE = {
-  // Felt visible around the outermost tiles, in world units. Kept small: the fit
-  // is vertical-space-limited on the 144-tile turtle, so padding here comes
-  // straight off tile width, which has a hard 64 px floor to clear.
-  padding: 0.45,
+  // Felt visible around the outermost tiles, in world units. Kept small because it
+  // comes straight off tile width, and tile width has a hard 64 dp floor to clear: at
+  // 0.45 the easy board measured 63.8 dp on Dawn's Tab A11+ (≈960 dp across), which is
+  // the screen that actually has to work.
+  padding: 0.3,
   borderWidth: 0.55,
   y: -0.02,
 };

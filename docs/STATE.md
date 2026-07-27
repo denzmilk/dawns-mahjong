@@ -35,6 +35,7 @@ blocked on code.
 | 09 | onto her tablet | green | installs and plays with the wifi off |
 | 10 | Pages deploy | green | opens on her tablet |
 | 11 | more boards, legend, surprise board | green | recognises a shape; finds "How to play"; doubled celebrations not overwhelming |
+| 11b | sized for the Tab A11+ (96-tile board, camera fit) | green | tiles feel big enough on her actual screen |
 
 ## Last action
 
@@ -57,6 +58,22 @@ Three things in one session.
   browser menu; offline play and the home-screen icon come from the manifest and service
   worker, not the button.
 - **Boards are named by tile count**, with the shape as a secondary hint.
+
+## Her tablet is a Galaxy Tab A11+
+
+Named on 2026-07-27, and it changed real decisions — dp, not inches, is what the touch
+floor is measured in. At Android's default display size an 11" 1920×1200 panel presents
+about **960 × 600 dp**, which is now the primary test viewport in
+`playwright.config.js`-adjacent test data (`HER_TABLET` in `tests/layout.spec.js`).
+
+Measured there: easy-72 and pagoda-96 both **68 dp**; the six 144-tile shapes **45–50 dp**;
+surprise **53 dp**. See milestone 11 for what changed as a result (a new 96-tile board,
+generalised face dealing, and a camera fit that stopped reserving space for bounding-box
+corners that hold no tile).
+
+**If tiles ever feel small to her:** Android's Settings → Display → Display size, moved
+*larger*, gives fewer dp and therefore bigger tiles — about 15% per step. Cheaper than any
+code change.
 
 ## Next step
 

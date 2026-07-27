@@ -13,14 +13,25 @@ const occupies = (t) => ({ x0: t.x, x1: t.x + 2, y0: t.y, y1: t.y + 2 });
 const rectsOverlap = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 
 test.describe('layout data', () => {
+  // Board sizes are chosen for what her tablet can show at a tappable size, not for
+  // tradition alone — see the note on dp in 'layout on screen' below.
+  const EXPECTED_SIZES = {
+    'easy-72': 72,
+    'pagoda-96': 96,
+    'turtle-144': 144,
+    'dragon-144': 144,
+    'cat-144': 144,
+    'fortress-144': 144,
+    'crab-144': 144,
+    'spider-144': 144,
+  };
+
   test('layout tile counts', () => {
-    expect(LAYOUTS['easy-72'].tiles).toHaveLength(72);
-    // Every other board is the traditional 144.
-    for (const id of FIXED_LAYOUT_IDS.filter((x) => x !== 'easy-72')) {
-      expect(LAYOUTS[id].tiles, `${id}`).toHaveLength(144);
+    for (const [id, size] of Object.entries(EXPECTED_SIZES)) {
+      expect(LAYOUTS[id]?.tiles, `${id}`).toHaveLength(size);
     }
-    // Seven fixed shapes plus the surprise board.
-    expect(FIXED_LAYOUT_IDS).toHaveLength(7);
+    // Every fixed board is accounted for, so a new one can't slip in untested.
+    expect(FIXED_LAYOUT_IDS.sort()).toEqual(Object.keys(EXPECTED_SIZES).sort());
   });
 
   test('the surprise board always produces a playable shape', () => {
@@ -122,9 +133,13 @@ test.describe('layout on screen', () => {
   // are what real tablets actually present: a 10.9" Tab A9+ is 1920×1200 physical
   // but only ~1024×640 dp in landscape. Physical resolution is not the constraint;
   // dp is, because a finger is a fixed size.
+  // Dawn's tablet is a Galaxy Tab A11+. An ~11" 1920×1200 panel presents roughly
+  // 960 × 600 dp at Android's default display size, so that is the size that actually
+  // matters; the rest cover a smaller display-size setting and a larger tablet.
+  const HER_TABLET = { width: 960, height: 600, label: 'Tab A11+ at default display size' };
   const TABLET_VIEWPORTS = [
-    { width: 1024, height: 640, label: '10.9" class' },
-    { width: 1200, height: 750, label: '11" class' },
+    HER_TABLET,
+    { width: 1097, height: 686, label: 'Tab A11+, smaller display size' },
     { width: 1280, height: 800, label: 'test default' },
     { width: 1600, height: 1000, label: '12"+ class' },
   ];
@@ -132,30 +147,38 @@ test.describe('layout on screen', () => {
   const smallestTile = (state) =>
     state.tiles.reduce((min, t) => Math.min(min, t.screen.w, t.screen.h), Infinity);
 
-  test('easy-72 tiles meet the 64px minimum touch target on every tablet size', async ({ page }) => {
-    // ADR-0002 constraint 4: tile size derives from the touch-target minimum,
-    // never the other way round. easy-72 is the default board, so this is the
-    // one that must hold everywhere.
-    for (const viewport of TABLET_VIEWPORTS) {
-      await gotoGame(page, { layout: 'easy-72', viewport });
-      const smallest = smallestTile(await snapshot(page));
-      expect(smallest, `easy-72 at ${viewport.label} (${viewport.width}dp)`).toBeGreaterThanOrEqual(64);
+  test('the everyday boards meet the 64dp touch minimum on her tablet', async ({ page }) => {
+    // ADR-0002 constraint 4: tile size derives from the touch-target minimum, never the
+    // other way round. These are the two boards that must hold everywhere, because they
+    // are the ones sized to fit her screen — both are 12 columns wide.
+    for (const layout of ['easy-72', 'pagoda-96']) {
+      for (const viewport of TABLET_VIEWPORTS) {
+        await gotoGame(page, { layout, viewport });
+        const smallest = smallestTile(await snapshot(page));
+        expect(smallest, `${layout} at ${viewport.label} (${viewport.width}dp)`).toBeGreaterThanOrEqual(64);
+      }
     }
   });
 
-  test('every 144-tile board stays above the 48dp platform floor', async ({ page }) => {
-    // All the big boards are in the same position as the turtle: they cannot reach
-    // 64 dp on a 10–11" tablet, which is what tap forgiveness exists for. The surprise
-    // board is included because it is generated, and a shape drawn too wide or too deep
-    // would quietly drop below the floor.
-    const boards = [...FIXED_LAYOUT_IDS.filter((x) => x !== 'easy-72'), SURPRISE.id];
+  test('the 144-tile boards measure what we think they measure on her tablet', async ({ page }) => {
+    // Recorded honestly rather than flatteringly: 16 tiles across 960 dp is 60 dp before
+    // margins and perspective, so every 144-tile board lands at roughly 44 dp on her
+    // Tab A11+ — under Android's own 48 dp guidance. That is why the 72- and 96-tile
+    // boards are the everyday ones, why tap forgiveness exists, and why a bigger
+    // Android display-size setting is worth knowing about. This test's job is to catch
+    // it getting *worse*, and to catch clipping.
+    const boards = [...FIXED_LAYOUT_IDS.filter((id) => LAYOUTS[id].tiles.length === 144), SURPRISE.id];
     for (const id of boards) {
-      await gotoGame(page, { layout: id, seed: 7, viewport: { width: 1024, height: 640 } });
+      await gotoGame(page, { layout: id, seed: 7, viewport: HER_TABLET });
       const state = await snapshot(page);
-      expect(state.tiles, `${id} tile count`).toHaveLength(144);
-      expect(smallestTile(state), `${id} smallest tile`).toBeGreaterThanOrEqual(46);
+      expect(state.counts.total, `${id} tile count`).toBe(144);
+      expect(smallestTile(state), `${id} smallest tile`).toBeGreaterThanOrEqual(43);
       const clipped = state.tiles.filter(
-        (t) => t.screen.x < 0 || t.screen.y < 0 || t.screen.x + t.screen.w > 1024 || t.screen.y + t.screen.h > 640
+        (t) =>
+          t.screen.x < 0 ||
+          t.screen.y < 0 ||
+          t.screen.x + t.screen.w > HER_TABLET.width ||
+          t.screen.y + t.screen.h > HER_TABLET.height
       );
       expect(clipped, `${id} clipped tiles`).toHaveLength(0);
     }

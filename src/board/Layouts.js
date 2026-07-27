@@ -341,7 +341,39 @@ const SPIDER = [
   ],
 ];
 
+// Sized for Dawn's actual tablet. A Tab A11+ presents about 960 dp across, and 12
+// columns is the widest board that still clears the 64 dp touch floor there — the
+// 144-tile boards are 16 columns and land at 44 dp, which is below Android's own
+// minimum. Twice the game of the easy board, still comfortable to tap.
+const PAGODA = [
+  [
+    '############',
+    '############',
+    '############',
+    '############',
+  ],
+  [
+    '............',
+    '############',
+    '############',
+    '............',
+  ],
+  [
+    '............',
+    '.##########.',
+    '.##########.',
+    '............',
+  ],
+  [
+    '............',
+    '............',
+    '....####....',
+    '............',
+  ],
+];
+
 export const SHAPE_LAYOUTS = {
+  'pagoda-96': { name: 'Pagoda', masks: PAGODA },
   'dragon-144': { name: 'Dragon', masks: DRAGON },
   'cat-144': { name: 'Cat', masks: CAT },
   'fortress-144': { name: 'Fortress', masks: FORTRESS },

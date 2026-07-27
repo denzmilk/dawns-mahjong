@@ -243,8 +243,8 @@ test.describe('boards and the legend', () => {
   test('every board is offered, and picking one actually starts it', async ({ page }) => {
     await gotoFront(page);
     const buttons = page.locator('#board-buttons .choice-button');
-    // Seven fixed shapes plus the surprise board.
-    expect(await buttons.count()).toBe(8);
+    // Eight fixed boards plus the surprise board.
+    expect(await buttons.count()).toBe(9);
 
     // The surprise board is the one that used to silently fall back to the easy board,
     // because it has no entry in LAYOUTS — it is generated per game.

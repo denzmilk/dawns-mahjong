@@ -16,16 +16,20 @@ export class CameraSystem {
   }
 
   /**
-   * Fit the board in view. Places the camera along the fixed tilt direction and
-   * solves for the pushback distance that brings every corner of the board's
-   * bounding box inside the frustum — pushing back along the view axis leaves
-   * camera-space X and Y untouched, so the required distance is exact rather
-   * than iterated.
+   * Fit the board in view. Places the camera along the fixed tilt direction and solves
+   * for the pushback distance that brings every given point inside the frustum —
+   * pushing back along the view axis leaves camera-space X and Y untouched, so the
+   * required distance is exact rather than iterated.
+   *
+   * It takes the actual corners of the actual tiles, not a bounding box. A box reserves
+   * room for its corners, and on a stacked board the corner "top layer, far edge" holds
+   * no tile at all — fitting to it cost about 4% of tile size on every multi-layer
+   * board, which is the difference between clearing the 64 dp touch floor and not.
    */
-  frame(bounds, width, height) {
+  frame(points, centre, width, height) {
     const aspect = width / height;
     this.camera.aspect = aspect;
-    bounds.getCenter(this.target);
+    this.target.copy(centre);
 
     this.camera.position.copy(this.target).addScaledVector(this.direction, 1);
     this.camera.lookAt(this.target);
@@ -37,18 +41,14 @@ export class CameraSystem {
     const corner = new THREE.Vector3();
 
     let pushback = 0;
-    for (const cx of [bounds.min.x, bounds.max.x]) {
-      for (const cy of [bounds.min.y, bounds.max.y]) {
-        for (const cz of [bounds.min.z, bounds.max.z]) {
-          corner.set(cx, cy, cz).applyMatrix4(inverse);
-          // Points in front of the camera have negative z in camera space.
-          pushback = Math.max(
-            pushback,
-            Math.abs(corner.x) / tanH + corner.z,
-            Math.abs(corner.y) / tanV + corner.z
-          );
-        }
-      }
+    for (const point of points) {
+      corner.copy(point).applyMatrix4(inverse);
+      // Points in front of the camera have negative z in camera space.
+      pushback = Math.max(
+        pushback,
+        Math.abs(corner.x) / tanH + corner.z,
+        Math.abs(corner.y) / tanV + corner.z
+      );
     }
 
     this.distance = (1 + pushback) * CAMERA.margin;

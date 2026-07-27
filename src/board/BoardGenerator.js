@@ -23,30 +23,41 @@ function shuffleInPlace(items, rng) {
 }
 
 /**
- * The face pairs for a board of `count` tiles.
+ * The face pairs for a board of `count` tiles, for any even count.
  *
- * A full set is 4 copies of each of the 34 suit and honour faces (136) plus 8 Elvis
- * tiles = 144. The 72-tile board halves that: 2 copies each plus 4 Elvis. Both fall
- * out of `count / 36` copies, which is checked rather than assumed.
+ * 144 lands on the traditional set — 4 copies of each of the 34 suit and honour faces
+ * plus 8 Elvis tiles — and 72 on exactly half of it. Sizes in between get a few faces
+ * twice as often as others, which is normal for non-standard mahjong solitaire boards
+ * and invisible in play.
  */
 export function buildFacePairs(count, rng) {
   if (count % 2 !== 0) throw new Error(`a board needs an even tile count, got ${count}`);
-  const copies = Math.floor(count / 36);
-  if (copies < 2 || copies % 2 !== 0) {
-    throw new Error(`unsupported board size ${count}: needs an even number of copies per face`);
-  }
-  const elvisCount = count - SUIT_FACES.length * copies;
-  if (elvisCount < 0 || elvisCount % 2 !== 0 || elvisCount > ELVIS_FACES.length) {
-    throw new Error(`unsupported board size ${count}: cannot place ${elvisCount} Elvis tiles`);
+
+  // Pairs are dealt by cycling the suit and honour faces, so any even board size gets a
+  // legal set: 144 lands on the traditional 4 copies of each of the 34 faces plus 8
+  // Elvis tiles, and smaller boards simply use fewer copies. Fixing the recipe at "4 of
+  // each" would have limited the game to one board size forever, and the size of the
+  // board is exactly what has to flex to keep tiles big enough for her to tap.
+  const pairsNeeded = count / 2;
+  // Elvis tiles are photographs used once each, so they cap at how many exist, and are
+  // kept to roughly the traditional proportion (8 in 144).
+  const elvisPairs = Math.min(
+    Math.floor(ELVIS_FACES.length / 2),
+    Math.max(1, Math.round((pairsNeeded * 4) / 72))
+  );
+  const suitPairs = pairsNeeded - elvisPairs;
+  if (suitPairs < SUIT_FACES.length) {
+    // Fewer pairs than faces would leave whole suits missing, which reads as a broken
+    // set rather than a small board.
+    if (suitPairs < 1) throw new Error(`board of ${count} is too small to deal`);
   }
 
   const pairs = [];
-  for (const face of SUIT_FACES) {
-    for (let n = 0; n < copies / 2; n++) pairs.push([face, face]);
+  for (let n = 0; n < suitPairs; n++) {
+    const face = SUIT_FACES[n % SUIT_FACES.length];
+    pairs.push([face, face]);
   }
-  // Elvis photographs are distinct pictures used once each; they all match one
-  // another, so any pairing of them is legal.
-  const elvis = ELVIS_FACES.slice(0, elvisCount);
+  const elvis = ELVIS_FACES.slice(0, elvisPairs * 2);
   for (let i = 0; i < elvis.length; i += 2) pairs.push([elvis[i], elvis[i + 1]]);
 
   return shuffleInPlace(pairs, rng);

@@ -63,6 +63,39 @@ endless replay, and a green tick against every board she has finished.
 Dawn opens the game, picks a shape she recognises, and finishes it — and the tick is
 there next time she looks.
 
+## Sized for the actual tablet (2026-07-27)
+
+Chris named the device: a **Galaxy Tab A11+**. An ~11" 1920×1200 panel presents about
+**960 × 600 dp** at Android's default display size, and dp is what the touch floor is
+measured in — so that is now the primary test viewport, and the numbers it gave changed
+the board line-up:
+
+| Board | before | after | |
+|---|---|---|---|
+| 72 tiles (easy) | 63.8 dp | **68 dp** | clears the 64 dp floor |
+| 96 tiles (pagoda) | — | **68 dp** | new, added because of these measurements |
+| 144 tiles (six shapes) | 44–47 dp | **45–50 dp** | below Android's 48 dp guidance; opt-in |
+| 144 tiles (surprise) | 51 dp | **53 dp** | |
+
+Three changes came out of it:
+
+1. **A 96-tile board** (`pagoda-96`). 16 tiles across 960 dp is 60 dp before margins and
+   perspective, so no amount of tuning gets a 144-tile board to 64 dp on her screen — the
+   only real lever is fewer tiles across. The pagoda is 12 columns like the easy board but
+   stacked four layers deep: twice the game, same finger-sized tiles.
+2. **Face dealing generalised to any even board size.** It was hard-wired to
+   `count / 36` copies, which supported exactly 72 and 144 and nothing else. 144 and 72
+   still deal identically; sizes between them use a few faces more often than others,
+   which is normal for non-standard boards and invisible in play.
+3. **The camera now fits the real tile corners, not a bounding box.** A box reserves room
+   for the corner "top layer, far edge", which on a stacked board holds no tile at all —
+   fitting to it was costing about 4% of tile size on every multi-layer board. That alone
+   is what got the pagoda from 62.6 dp to 68.
+
+The 144-tile boards remain below the platform floor at 45–50 dp (roughly 7–8 mm). That is
+recorded rather than smoothed over: they are opt-in, tap forgiveness covers near-misses,
+and a larger Android display-size setting buys her another ~15% if she wants it.
+
 ## Notes
 
 - **Both new-shape bugs were size bugs, and both were caught by measurement:** the crab

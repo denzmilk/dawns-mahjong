@@ -768,11 +768,45 @@ export class Game {
     return bounds;
   }
 
+  /**
+   * Every corner of every tile, plus the padded footprint at table level. Framing
+   * against these rather than a bounding box stops the camera reserving space for
+   * box corners that hold no tile — worth about 4% of tile size on a stacked board.
+   */
+  framingPoints() {
+    const halfW = (TILE.width - TILE.gap) / 2;
+    const halfD = (TILE.depth - TILE.gap) / 2;
+    const points = [];
+    for (const mesh of this.tileMeshes) {
+      const home = mesh.userData.entrance ? mesh.userData.entrance.target : mesh.position;
+      for (const dx of [-halfW, halfW]) {
+        for (const dz of [-halfD, halfD]) {
+          points.push(new THREE.Vector3(home.x + dx, home.y + TILE.thickness / 2, home.z + dz));
+          points.push(new THREE.Vector3(home.x + dx, TABLE.y, home.z + dz));
+        }
+      }
+    }
+    // The felt margin, at table level so it costs nothing in height.
+    const bounds = this.boardBounds();
+    for (const x of [bounds.min.x, bounds.max.x]) {
+      for (const z of [bounds.min.z, bounds.max.z]) {
+        points.push(new THREE.Vector3(x, TABLE.y, z));
+      }
+    }
+    return points;
+  }
+
   updateSize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
     this.renderer.setSize(width, height, true);
-    this.cameraSystem.frame(this.boardBounds(), width, height);
+    const bounds = this.boardBounds();
+    this.cameraSystem.frame(
+      this.framingPoints(),
+      bounds.getCenter(new THREE.Vector3()),
+      width,
+      height
+    );
     this.fitShadowCamera();
     this.invalidateShadows();
   }

@@ -39,6 +39,7 @@ Tiles that fail either test are dimmed and cannot be tapped at all — tapping o
 
 **Boards** — eight, chosen from the front screen and labelled by tile count
 - **72 tiles (easy)** — the default. Two copies of each of the 34 faces plus 4 Elvis tiles, on a roomy layout with big finger-sized tiles.
+- **96 tiles (pagoda)** — twice the easy board, four layers deep, and still finger-sized on her tablet.
 - **144 tiles** in six shapes: **turtle** (the traditional pyramid), **dragon**, **cat**, **fortress**, **crab**, **spider** — the shapes she is most likely to already know.
 - **144 tiles (surprise)** — a shape generated fresh every game: stars, rings, hearts, crosses, flowers, diamonds, butterflies, blobs. There is always another board.
 - A green tick marks every board she has finished.
