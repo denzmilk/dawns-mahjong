@@ -312,3 +312,112 @@ export function fitShapeToScreen(baseMask, count, viewportAspect, tileAspect = 1
   }
   return null;
 }
+
+/**
+ * Builds UP rather than out.
+ *
+ * Chris asked why more tiles means a wider board rather than a taller stack (2026-07-28),
+ * and the measurements settled it: 144 tiles spread across a portrait screen gives 43 dp
+ * tiles, while the same 144 stacked four deep on a 6 × 6 footprint gives 103 dp — two and a
+ * half times the size, for the same game. Tile size is set by the FOOTPRINT, not the count,
+ * so height is free.
+ *
+ * The previous approach eroded each layer inside the one below, which caps how much a small
+ * footprint can hold and — once trimmed — collapsed some boards to a single flat layer.
+ * This stacks the same silhouette repeatedly instead: support is automatic (every tile has
+ * one directly beneath it), and only the top layer is partial, filled centre-outwards so it
+ * reads as deliberate.
+ *
+ * The cost is choice: a deep stack exposes fewer tiles at once. `minPlayable` is what stops
+ * that going too far.
+ */
+export function buildStackedBoard(count, viewportAspect, {
+  silhouette = null,
+  tileAspect = 1.32,
+  maxLayers = 4,
+  // A deep stack exposes fewer tiles, and fewer exposed tiles means fewer matching pairs
+  // on offer. 14 keeps a real choice in front of her: at 10 some boards opened with only
+  // two pairs available, which is a game spent pressing Mix up.
+  minPlayable = 14,
+} = {}) {
+  const ratio = Math.max(0.25, viewportAspect * tileAspect);
+
+  // Deepest stack first: fewest footprint cells, so the biggest tiles.
+  for (let layers = Math.min(maxLayers, Math.floor(count / 6)); layers >= 1; layers--) {
+    const needed = Math.ceil(count / layers);
+    const grid = silhouette
+      ? resampleSilhouette(silhouette, needed, ratio)
+      : solidFootprint(needed, ratio);
+    if (!grid) continue;
+
+    const cells = [];
+    grid.forEach((line, row) => line.forEach((cell, col) => cell && cells.push({ row, col })));
+    if (cells.length < needed) continue;
+
+    // Full layers, then a partial top filled from the middle out.
+    const centreRow = (grid.length - 1) / 2;
+    const centreCol = (grid[0].length - 1) / 2;
+    const inward = [...cells].sort(
+      (a, b) =>
+        Math.hypot(a.row - centreRow, (a.col - centreCol) / 2) -
+        Math.hypot(b.row - centreRow, (b.col - centreCol) / 2)
+    );
+
+    const tiles = [];
+    for (let layer = 0; layer < layers && tiles.length < count; layer++) {
+      const remaining = count - tiles.length;
+      const take = remaining >= cells.length ? cells : inward.slice(0, remaining);
+      for (const cell of take) tiles.push({ x: cell.col * 2, y: cell.row * 2, layer });
+    }
+    if (tiles.length !== count) continue;
+
+    // A stack this deep must still leave her something to tap.
+    if (countPlayable(tiles) < minPlayable) continue;
+    return { cols: grid[0].length, rows: grid.length, layers, tiles };
+  }
+  return null;
+}
+
+function solidFootprint(cells, ratio) {
+  const rows = Math.max(2, Math.round(Math.sqrt(cells / ratio)));
+  const cols = Math.max(2, Math.ceil(cells / rows));
+  return Array.from({ length: rows }, () => Array.from({ length: cols }, () => 1));
+}
+
+/** Scales an authored silhouette up until it holds at least `cells` tiles. */
+function resampleSilhouette(mask, cells, ratio) {
+  const srcRows = mask.length;
+  const srcCols = mask[0].length;
+  for (let rows = 3; rows <= 24; rows++) {
+    const cols = Math.max(3, Math.round(rows * ratio));
+    const grid = [];
+    let filled = 0;
+    for (let r = 0; r < rows; r++) {
+      const sr = Math.min(srcRows - 1, Math.floor(((r + 0.5) / rows) * srcRows));
+      const line = [];
+      for (let c = 0; c < cols; c++) {
+        const sc = Math.min(srcCols - 1, Math.floor(((c + 0.5) / cols) * srcCols));
+        const on = mask[sr][sc] === '#' ? 1 : 0;
+        filled += on;
+        line.push(on);
+      }
+      grid.push(line);
+    }
+    if (filled >= cells) return grid;
+  }
+  return null;
+}
+
+/** Tiles with nothing on top and a clear left or right edge — what she can tap right now. */
+function countPlayable(tiles) {
+  const key = (x, y, layer) => `${x},${y},${layer}`;
+  const at = new Set(tiles.map((t) => key(t.x, t.y, t.layer)));
+  let playable = 0;
+  for (const t of tiles) {
+    if (at.has(key(t.x, t.y, t.layer + 1))) continue;
+    const left = at.has(key(t.x - 2, t.y, t.layer));
+    const right = at.has(key(t.x + 2, t.y, t.layer));
+    if (!left || !right) playable++;
+  }
+  return playable;
+}

@@ -59,7 +59,37 @@ Three things in one session.
   worker, not the button.
 - **Boards are named by tile count**, with the shape as a secondary hint.
 
-## Boards are now built to fit the screen (2026-07-28)
+## Boards build UP, not out (2026-07-28)
+
+Chris asked why more tiles meant a wider board rather than a taller stack, and the
+measurement settled it immediately: **144 tiles spread across a portrait screen give 43 dp
+tiles; the same 144 stacked four deep on a small footprint give 103 dp.** Tile size is set
+by the footprint, not the count — so height is nearly free.
+
+`buildStackedBoard` (in `src/board/ShapeGenerator.js`) now lays every board this way: the
+silhouette is resampled onto a footprint matching the screen, then repeated upward, with only
+the top layer partial (filled centre-outwards). Support is automatic — every tile has one
+directly beneath it. It replaced an erosion-based fit that capped what a small footprint
+could hold and, once trimmed, had collapsed some boards to a single flat layer, which is why
+tiles were so small.
+
+Measured upright after the change: quick 105 dp, garden 126, easy 92, pagoda 121, turtle 79,
+cat 80, spider 80 — every board between 72 and 131 dp, against 43–126 before.
+
+Two things this cost, both recorded rather than hidden:
+
+- **Fewer pairs on offer at once** (3–8 rather than 16–49), because a deep stack exposes
+  fewer tiles. `minPlayable: 14` in the builder is the guard; at 10 some boards opened with
+  only two pairs available, which is a game spent pressing Mix up.
+- **Covered tiles are now genuinely unreachable** until the tile above them goes, since tiles
+  sit directly on each other. That is normal mahjong, but it changed a test: tapping a
+  covered tile's centre correctly selects the tile sitting *on* it.
+
+The turtle was missing out entirely — it predates the mask format, so it had no silhouette to
+resample and stayed at 43 dp while the cat reached 80. Masks are now derived from the base
+layer when a board wasn't authored from one.
+
+## Boards were fitted to the screen (2026-07-28)
 
 Chris's observation, and it was the right one: turning a wide board upright just makes a
 tall ribbon — a 12 × 4 board becomes 4 × 12, and both waste the screen. Tile size comes

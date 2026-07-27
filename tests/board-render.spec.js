@@ -59,7 +59,11 @@ test('tiles stack upward with visible layer separation', async ({ page }) => {
     const tiles = state.tiles.filter((t) => t.layer === layer);
     return tiles.reduce((s, t) => s + t.screen.cy, 0) / tiles.length;
   };
-  for (let layer = 1; layer <= 4; layer++) {
+  // However many layers this board ended up with — boards are now stacked to fit the
+  // screen, so the count varies with the viewport rather than being fixed by the layout.
+  const topLayer = Math.max(...state.tiles.map((t) => t.layer));
+  expect(topLayer).toBeGreaterThan(0);
+  for (let layer = 1; layer <= topLayer; layer++) {
     expect(meanY(layer), `layer ${layer} should sit higher than ${layer - 1}`).toBeLessThan(meanY(layer - 1));
   }
 });

@@ -48,10 +48,22 @@ test.describe('selection', () => {
   test('blocked tiles ignore taps', async ({ page }) => {
     await gotoGame(page, { layout: 'turtle-144', seed: 5 });
     const state = await snapshot(page);
-    const blocked = blockedTiles(state);
-    expect(blocked.length).toBeGreaterThan(0);
 
-    const after = await tapTile(page, state, blocked[0].id);
+    // A tile blocked by its SIDES, with nothing on top of it. A tile that is covered can't
+    // be tested this way: tapping its centre hits the tile sitting on it, which is a free
+    // tile and is correctly selected — boards now stack tiles directly on top of each
+    // other, so covered tiles are unreachable by design rather than ignored.
+    const covered = new Set(
+      state.tiles.flatMap((t) =>
+        state.tiles.some((o) => !o.cleared && o.layer === t.layer + 1 && o.x === t.x && o.y === t.y)
+          ? [t.id]
+          : []
+      )
+    );
+    const sideBlocked = state.tiles.filter((t) => !t.free && !t.cleared && !covered.has(t.id));
+    expect(sideBlocked.length, 'expected a side-blocked tile to tap').toBeGreaterThan(0);
+
+    const after = await tapTile(page, state, sideBlocked[0].id);
     expect(after.selection).toBeNull();
     expect(after.counts.remaining).toBe(state.counts.remaining);
   });

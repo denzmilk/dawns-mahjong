@@ -1,5 +1,5 @@
 import { SURPRISE } from '../core/Constants.js';
-import { buildFittedBoard, fitShapeToScreen, generateShape } from './ShapeGenerator.js';
+import { buildStackedBoard, generateShape } from './ShapeGenerator.js';
 
 // Board shapes as pure data. No Three.js, no DOM — these are imported directly
 // by tests.
@@ -66,6 +66,22 @@ const turtle144 = [
 ];
 
 const withIds = (tiles) => tiles.map((t, i) => ({ ...t, id: i }));
+
+/** The outline of a board's base layer, as a mask — so any layout can be re-laid. */
+function baseMaskFrom(tiles) {
+  const base = tiles.filter((t) => t.layer === 0);
+  const minX = Math.min(...base.map((t) => t.x));
+  const minY = Math.min(...base.map((t) => t.y));
+  const cols = (Math.max(...base.map((t) => t.x)) - minX) / 2 + 1;
+  const rows = (Math.max(...base.map((t) => t.y)) - minY) / 2 + 1;
+  const grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => '.'));
+  for (const t of base) {
+    const row = Math.round((t.y - minY) / 2);
+    const col = Math.round((t.x - minX) / 2);
+    if (grid[row]) grid[row][col] = '#';
+  }
+  return grid.map((line) => line.join(''));
+}
 
 export const LAYOUTS = {
   'easy-72': {
@@ -149,12 +165,12 @@ export function getLayout(id, { rng = Math.random, portrait = false, viewportAsp
   // Built to fit the screen when we know its shape; the authored masks stay as the
   // fallback, which is what the layout tests assert against.
   if (FITTED_BOARDS[id] && viewportAspect !== null) {
-    const fitted = buildFittedBoard(FITTED_BOARDS[id], viewportAspect, tileAspect);
+    const fitted = buildStackedBoard(FITTED_BOARDS[id], viewportAspect, { tileAspect });
     if (fitted) {
       return {
         ...LAYOUTS[id],
         tiles: withIds(fitted.tiles),
-        fitted: `${fitted.cols}×${fitted.rows}`,
+        fitted: `${fitted.cols}×${fitted.rows}×${fitted.layers}`,
       };
     }
   }
@@ -177,12 +193,21 @@ export function getLayout(id, { rng = Math.random, portrait = false, viewportAsp
   const layout = LAYOUTS[id];
   if (!layout) return null;
 
-  // The named shapes get the same treatment: re-laid onto a footprint that matches the
-  // screen, so a cat fills a tablet held upright instead of shrinking to a strip across it.
-  if (layout.masks && viewportAspect !== null) {
-    const fitted = fitShapeToScreen(layout.masks[0], layout.tiles.length, viewportAspect, tileAspect);
+  // Every authored board gets the same treatment: its silhouette re-laid onto a footprint
+  // that matches the screen and stacked upward. The mask is derived from the base layer when
+  // the board wasn't authored from one — the turtle predates the mask format and was
+  // silently missing out, which is why it stayed at 43 dp while the cat reached 80.
+  if (viewportAspect !== null) {
+    const fitted = buildStackedBoard(layout.tiles.length, viewportAspect, {
+      silhouette: layout.masks ? layout.masks[0] : baseMaskFrom(layout.tiles),
+      tileAspect,
+    });
     if (fitted) {
-      return { ...layout, tiles: withIds(fitted.tiles), fitted: `${fitted.cols}×${fitted.rows}` };
+      return {
+        ...layout,
+        tiles: withIds(fitted.tiles),
+        fitted: `${fitted.cols}×${fitted.rows}×${fitted.layers}`,
+      };
     }
   }
 
