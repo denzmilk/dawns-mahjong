@@ -5,12 +5,15 @@ import { LAYOUT_IDS } from './board/Layouts.js';
 
 const container = document.getElementById('game-container');
 
-// ?layout= is a development and test affordance only. Dawn picks her board from
-// the front screen (milestone 04); she never sees a URL.
-const requested = new URLSearchParams(window.location.search).get('layout');
+// ?layout= and ?seed= are development and test affordances only. Dawn picks her
+// board from the front screen (milestone 04); she never sees a URL. The seed makes
+// a board reproducible, which is how a reported problem gets investigated.
+const params = new URLSearchParams(window.location.search);
+const requested = params.get('layout');
 const layoutId = LAYOUT_IDS.includes(requested) ? requested : LAYOUT_DEFAULT;
+const seed = params.has('seed') ? Number(params.get('seed')) : null;
 
-const game = new Game(container, { layoutId });
+const game = new Game(container, { layoutId, seed: Number.isFinite(seed) ? seed : null });
 
 suppressUnwantedGestures();
 installTestHooks(game);
@@ -56,6 +59,30 @@ function installTestHooks(game) {
     game,
 
     pickAt: (x, y) => game.pickAt(x, y),
+
+    // The player-facing buttons for these arrive in milestone 04; until then this
+    // is how the assists get exercised.
+    hint: () => game.hint(),
+    shuffle: () => game.shuffle(),
+    newBoard: (options) => game.newBoard(options),
+    tap: (x, y) => game.handleTap(x, y),
+
+    /**
+     * Loads an arbitrary board, bypassing generation. Tests use it to set up
+     * positions that are hard to reach by playing — a stuck board, most of all,
+     * which cannot be generated on purpose because generation guarantees the
+     * opposite.
+     */
+    loadFixture(tiles, { layoutId = 'easy-72', assists = null } = {}) {
+      const withIds = tiles.map((t, i) => ({ id: i, cleared: false, ...t }));
+      game.buildBoard(layoutId, withIds);
+      // Assists are reset by building a board, so they are applied afterwards —
+      // and the board state is re-derived, because whether a stuck board is a loss
+      // depends on how many reshuffles are left.
+      if (assists) game.setAssists(assists);
+      game.requestRender();
+      return game.snapshot();
+    },
 
     /**
      * Pixel readback. Headless WebGL screenshots composite black, so visual

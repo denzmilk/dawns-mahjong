@@ -3,11 +3,18 @@
 // under SwiftShader, so visual assertions read the drawing buffer directly
 // (see docs/tech.md → Testing).
 
-/** Load the game and wait until the first frame has been drawn. */
-export async function gotoGame(page, { layout = null, viewport = null } = {}) {
+/**
+ * Load the game and wait until the first frame has been drawn.
+ * Pass a `seed` for a reproducible board — a failure then points at one exact
+ * board rather than "some board it generated that time".
+ */
+export async function gotoGame(page, { layout = null, seed = null, viewport = null } = {}) {
   if (viewport) await page.setViewportSize(viewport);
-  const query = layout ? `/?layout=${layout}` : '/';
-  await page.goto(query);
+  const params = new URLSearchParams();
+  if (layout) params.set('layout', layout);
+  if (seed !== null) params.set('seed', String(seed));
+  const query = params.toString();
+  await page.goto(query ? `/?${query}` : '/');
   await page.waitForFunction(() => window.__ready === true, null, { timeout: 20_000 });
   return page;
 }
@@ -72,6 +79,19 @@ export async function distinctColourCount(page, rect, { cols = 48, rows = 30, bu
 
 export const isGreenish = ([r, g, b]) => g > r + 8 && g > b + 8;
 export const isBright = ([r, g, b]) => (r + g + b) / 3 > 140;
+
+// Re-exported from the game's own RNG rather than reimplemented, so a test seed and
+// a ?seed= URL always produce the identical board.
+export { mulberry32 as seededRng } from '../src/core/Rng.js';
+
+/** Tap a tile by id, using the screen rect from the snapshot. */
+export async function tapTile(page, state, tileId) {
+  const tile = state.tiles.find((t) => t.id === tileId);
+  if (!tile) throw new Error(`no tile ${tileId} in snapshot`);
+  await page.touchscreen.tap(Math.round(tile.screen.cx), Math.round(tile.screen.cy));
+  await page.waitForTimeout(60);
+  return snapshot(page);
+}
 
 /** Screen-space rect of a tile from the snapshot, as a Playwright-friendly box. */
 export function tileBox(tile) {

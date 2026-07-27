@@ -54,20 +54,30 @@ test('the camera never moves in response to input', async ({ page }) => {
   const before = await snapshot(page);
 
   const box = await page.locator('canvas').boundingBox();
-  // A drag across the board, a two-finger spread, and a wheel — everything that
-  // would orbit or zoom a conventional 3D scene.
+  // A drag across the board and a wheel — everything that would orbit or zoom a
+  // conventional 3D scene. Neither is a tap, so nothing at all should change.
   await page.mouse.move(box.x + 200, box.y + 200);
   await page.mouse.down();
   await page.mouse.move(box.x + 900, box.y + 600, { steps: 12 });
   await page.mouse.up();
   await page.mouse.wheel(0, -600);
-  await page.touchscreen.tap(box.x + 300, box.y + 300);
   await page.waitForTimeout(200);
 
-  const after = await snapshot(page);
+  let after = await snapshot(page);
   expect(after.camera).toEqual(before.camera);
+  expect(after.selection, 'a drag must not select anything').toBeNull();
   // Tile screen positions are the real proof — the board did not move.
   expect(after.tiles.map((t) => [t.screen.cx, t.screen.cy])).toEqual(
     before.tiles.map((t) => [t.screen.cx, t.screen.cy])
   );
+
+  // A tap does lift the tile it selects, so the camera is checked on its own here:
+  // the board may respond to a tap, but the viewpoint never does.
+  await page.touchscreen.tap(box.x + 300, box.y + 300);
+  await page.waitForTimeout(200);
+  after = await snapshot(page);
+  expect(after.camera).toEqual(before.camera);
+  const unselected = (state) =>
+    state.tiles.filter((t) => t.id !== state.selection).map((t) => [t.screen.cx, t.screen.cy]);
+  expect(unselected(after)).toEqual(unselected({ ...before, selection: after.selection }));
 });

@@ -2,11 +2,12 @@ import { test, expect } from '@playwright/test';
 import { gotoGame, snapshot } from './helpers.mjs';
 
 test('render_game_to_text shape', async ({ page }) => {
-  await gotoGame(page, { layout: 'easy-72' });
+  await gotoGame(page, { layout: 'easy-72', seed: 101 });
   const state = await snapshot(page);
 
   expect(state.screen).toBe('board');
   expect(state.layout).toBe('easy-72');
+  expect(state.seed).toBe(101);
   expect(state.viewport).toEqual({ w: 1280, h: 800, dpr: expect.any(Number) });
   expect(state.camera).toEqual({
     tiltDegrees: expect.any(Number),
@@ -16,6 +17,10 @@ test('render_game_to_text shape', async ({ page }) => {
   expect(state.counts).toEqual({ total: 72, remaining: 72, cleared: 0 });
   expect(state.assists).toEqual({ hintsLeft: 10, shufflesLeft: 3 });
   expect(state.selection).toBeNull();
+  expect(state.hintPair).toBeNull();
+  expect(state.mismatchPair).toBeNull();
+  expect(state.stuck).toBe(false);
+  expect(state.availablePairs).toBeGreaterThan(0);
   expect(state.time).toEqual({ mode: 'auto', elapsed: expect.any(Number) });
   expect(typeof state.renderCount).toBe('number');
 
@@ -27,6 +32,7 @@ test('render_game_to_text shape', async ({ page }) => {
       layer: expect.any(Number),
       face: expect.any(String),
       cleared: false,
+      free: expect.any(Boolean),
       screen: {
         x: expect.any(Number),
         y: expect.any(Number),
@@ -45,7 +51,9 @@ test('render_game_to_text shape', async ({ page }) => {
 
 test('advanceTime is deterministic', async ({ page }) => {
   const run = async () => {
-    await gotoGame(page, { layout: 'turtle-144' });
+    // A fixed seed, or the two runs get different boards and the comparison is
+    // meaningless — which is exactly what the seed exists to prevent.
+    await gotoGame(page, { layout: 'turtle-144', seed: 202 });
     await page.evaluate(() => window.advanceTime(1));
     const state = await snapshot(page);
     // renderCount is wall-clock dependent before manual time takes over.

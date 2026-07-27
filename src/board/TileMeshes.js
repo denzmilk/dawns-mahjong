@@ -123,6 +123,27 @@ export function createTileGeometry(faceIndex) {
   return geometry;
 }
 
+/**
+ * Repoints an existing tile's top face at a different atlas cell. Used by a
+ * reshuffle, which changes 100+ faces at once — rewriting four UVs in place beats
+ * rebuilding that many geometries.
+ */
+export function setTileFace(mesh, faceIndex) {
+  const uv = mesh.geometry.attributes.uv;
+  const cell = cellRect(faceIndex);
+  const corners = [
+    [0, 1],
+    [1, 1],
+    [0, 0],
+    [1, 0],
+  ];
+  const base = FACE_GROUP_PY * 4;
+  corners.forEach(([u, v], i) => {
+    uv.setXY(base + i, cell.u0 + u * cell.du, cell.v0 + v * cell.dv);
+  });
+  uv.needsUpdate = true;
+}
+
 /** Lattice coordinates → world position of a tile's centre. */
 export function latticeToWorld({ x, y, layer }) {
   return {

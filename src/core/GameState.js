@@ -9,16 +9,23 @@ class GameState {
   }
 
   reset(layoutId = LAYOUT_DEFAULT) {
-    this.screen = 'board'; // greeting | board | won | no-moves (screens land in milestone 04)
+    this.screen = 'board'; // board | won | no-moves (greeting lands in milestone 04)
     this.layoutId = layoutId;
+    this.seed = null;
     /**
      * One entry per tile: { id, x, y, layer, face, cleared }.
      * x/y are half-tile lattice coordinates — see src/board/Layouts.js.
      */
     this.tiles = [];
     this.selectedId = null;
+    /** Held briefly so a wrong pair is visible before it releases. */
+    this.mismatchPair = null;
+    /** The pair a hint is currently pointing at. */
+    this.hintPair = null;
     this.hintsLeft = ASSISTS.hints;
     this.shufflesLeft = ASSISTS.shuffles;
+    /** No legal move available. Only a loss once the reshuffles are gone too. */
+    this.stuck = false;
     this.elapsed = 0;
   }
 

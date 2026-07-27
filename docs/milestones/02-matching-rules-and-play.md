@@ -2,7 +2,7 @@
 
 ## Status
 
-planned
+in-progress — all 18 automated ACs green (63 specs across the suite); the tap-accuracy playtest AC awaits Chris
 
 ## Objective
 
@@ -38,24 +38,24 @@ Make the board playable. This milestone delivers the complete rule set — free-
 
 ## Acceptance criteria
 
-- [ ] `isFree()` is correct across a hand-built truth table: covered above, covered partially above, blocked both sides, free left only, free right only, free both, board edge cases, and top-of-stack — test: `tests/rules.spec.js::isFree truth table`
-- [ ] A tile covered by *any* overlapping tile on the layer above is not free, including a half-overlap that only clips one corner — test: `tests/rules.spec.js::partial cover blocks a tile`
-- [ ] `matches()` is true for identical faces, false for different faces, and true for any two Elvis tiles — test: `tests/rules.spec.js::matching including the Elvis group`
-- [ ] A generated `easy-72` board is solvable: a greedy solver following the generator's own order clears all 72 tiles, over 200 seeded generations — test: `tests/generator.spec.js::easy-72 boards are always solvable`
-- [ ] A generated `turtle-144` board is solvable over 200 seeded generations — test: `tests/generator.spec.js::turtle-144 boards are always solvable`
-- [ ] Every generated board contains a legal multiset: 4 of each of the 34 faces + 8 Elvis for turtle-144; 2 of each + 4 Elvis for easy-72 — test: `tests/generator.spec.js::face multiset is legal`
-- [ ] `shuffleRemaining()` preserves the exact multiset of remaining faces, changes at least one position, and yields a solvable arrangement — test: `tests/generator.spec.js::shuffle preserves tiles and stays solvable`
-- [ ] Tapping a free tile selects it; tapping it again deselects; tapping another free tile moves the selection — test: `tests/play.spec.js::selection behaviour`
-- [ ] Tapping a blocked tile does nothing — no selection change, no event emitted — test: `tests/play.spec.js::blocked tiles ignore taps`
-- [ ] A tap in the felt just outside a single free tile selects that tile; a tap in a gap that is near two or more free tiles selects nothing; a tap well away from any tile selects nothing — test: `tests/play.spec.js::tap forgiveness only resolves unambiguous near-misses`
-- [ ] Every tile of a `turtle-144` board at a 1024×640 tablet viewport is reachable by a tap at its centre despite 47 dp tiles — test: `tests/play.spec.js::turtle tiles are all tappable on a small tablet`
-- [ ] Tapping a matching free tile clears both and drops the remaining count by 2 — test: `tests/play.spec.js::matching pair clears`
-- [ ] Tapping a non-matching free tile clears the selection and removes no tiles — test: `tests/play.spec.js::mismatch clears selection only`
-- [ ] `hint()` returns a pair that is genuinely available and decrements 10 → 0, then becomes a no-op — test: `tests/assists.spec.js::hints are valid and finite`
-- [ ] `shuffle()` decrements 3 → 0, then becomes a no-op — test: `tests/assists.spec.js::reshuffles are finite`
-- [ ] Clearing the final pair emits `board:cleared` and sets the win screen — test: `tests/play.spec.js::clearing the board wins`
-- [ ] A board with no available pair and zero reshuffles emits `game:no-moves`; with reshuffles remaining it does **not** — test: `tests/play.spec.js::dead end only ends the game with no reshuffles left`
-- [ ] A full 72-tile game can be played to a win entirely through synthesised taps — test: `tests/play.spec.js::plays a full board to completion by tapping`
+- [x] `isFree()` is correct across a hand-built truth table: covered above, covered partially above, blocked both sides, free left only, free right only, free both, board edge cases, and top-of-stack — test: `tests/rules.spec.js::isFree truth table`
+- [x] A tile covered by *any* overlapping tile on the layer above is not free, including a half-overlap that only clips one corner — test: `tests/rules.spec.js::partial cover blocks a tile`
+- [x] `matches()` is true for identical faces, false for different faces, and true for any two Elvis tiles — test: `tests/rules.spec.js::matching including the Elvis group`
+- [x] A generated `easy-72` board is solvable: a greedy solver following the generator's own order clears all 72 tiles, over 200 seeded generations — test: `tests/generator.spec.js::easy-72 boards are always solvable`
+- [x] A generated `turtle-144` board is solvable over 200 seeded generations — test: `tests/generator.spec.js::turtle-144 boards are always solvable`
+- [x] Every generated board contains a legal multiset: 4 of each of the 34 faces + 8 Elvis for turtle-144; 2 of each + 4 Elvis for easy-72 — test: `tests/generator.spec.js::face multiset is legal`
+- [x] `shuffleRemaining()` preserves the exact multiset of remaining faces, changes at least one position, and yields a solvable arrangement — test: `tests/generator.spec.js::shuffle preserves tiles and stays solvable`
+- [x] Tapping a free tile selects it; tapping it again deselects; tapping another free tile moves the selection — test: `tests/play.spec.js::selection behaviour`
+- [x] Tapping a blocked tile does nothing — no selection change, no event emitted — test: `tests/play.spec.js::blocked tiles ignore taps`
+- [x] A tap in the felt just outside a single free tile selects that tile; a tap in a gap that is near two or more free tiles selects nothing; a tap well away from any tile selects nothing — test: `tests/play.spec.js::tap forgiveness only resolves unambiguous near-misses`
+- [x] Every tile of a `turtle-144` board at a 1024×640 tablet viewport is reachable by a tap at its centre despite 47 dp tiles — test: `tests/play.spec.js::turtle tiles are all tappable on a small tablet`
+- [x] Tapping a matching free tile clears both and drops the remaining count by 2 — test: `tests/play.spec.js::matching pair clears`
+- [x] Tapping a non-matching free tile clears the selection and removes no tiles — test: `tests/play.spec.js::mismatch clears selection only`
+- [x] `hint()` returns a pair that is genuinely available and decrements 10 → 0, then becomes a no-op — test: `tests/assists.spec.js::hints are valid and finite`
+- [x] `shuffle()` decrements 3 → 0, then becomes a no-op — test: `tests/assists.spec.js::reshuffles are finite`
+- [x] Clearing the final pair emits `board:cleared` and sets the win screen — test: `tests/play.spec.js::clearing the board wins`
+- [x] A board with no available pair and zero reshuffles emits `game:no-moves`; with reshuffles remaining it does **not** — test: `tests/play.spec.js::dead end only ends the game with no reshuffles left`
+- [x] A full 72-tile game can be played to a win entirely through synthesised taps — test: `tests/play.spec.js::plays a full board to completion by tapping`
 - [ ] Tapping tiles feels immediate and accurate on a real touchscreen — no missed taps, no wrong tile picked at the edges — verified by user playtest
 
 ## Exit condition
@@ -67,10 +67,40 @@ Chris plays an `easy-72` board from first tap to last using only taps → observ
 Red-then-green, rules first since they're pure and fastest to iterate:
 
 1. `tests/rules.spec.js` — hand-built fixtures, no renderer. The `isFree` truth table is the single most important test in the project.
-2. `tests/generator.spec.js` — seeded generation (inject the RNG so runs are reproducible) then programmatic solving. 200 iterations each; if that's slow, drop to 50 in the default run and keep 200 behind a flag.
+2. `tests/generator.spec.js` — seeded generation (the RNG is injected, so a bad board is reproducible from its seed) then programmatic solving. 200 boards per layout, kept in the default run: the whole file takes ~7 s because generation uses a precomputed adjacency index rather than scanning the board for every freeness question.
 3. `tests/play.spec.js` and `tests/assists.spec.js` — drive the live game via Playwright taps at projected tile screen positions, asserting through `render_game_to_text()`.
 - Regression command: `npx playwright test`.
 - Manual playtest: on the actual tablet if it's to hand, otherwise Chris's phone or a touchscreen — tap accuracy is the one AC that a mouse cannot honestly verify.
+
+## Implementation notes (2026-07-27)
+
+- **A dead end is only a loss once the reshuffles are gone, and that falls out of a
+  guarantee rather than a rule:** because a reshuffle always produces a solvable
+  arrangement, any stuck board is recoverable while she still holds one. So
+  `game:no-moves` fires only when stuck *and* `shufflesLeft === 0`.
+- **A stuck board cannot be generated on purpose** — generation guarantees the
+  opposite — so the dead-end test loads an explicit fixture through
+  `window.__debug.loadFixture()`: four tiles in a row, A B A B, where only the outer
+  two are free and they don't match. That hook also lets a future session set up any
+  awkward board state directly instead of playing towards it.
+- **A mismatch leaves nothing selected.** Both tiles release immediately and the
+  pair is held in `mismatchPair` for the feedback window, so "what is selected" is
+  never ambiguous. The hold runs off the game clock, not `setTimeout`, so
+  `advanceTime()` steps it deterministically.
+- **Tap forgiveness only fires when the tap hit no tile at all.** A tap that lands
+  on a *blocked* tile does nothing rather than falling through to a nearby free one
+  — falling through would select tiles she wasn't aiming at, which is worse than a
+  tap that appears to miss.
+- **A stopgap selection lift was added** (`TILE.selectionLift`): a selected tile
+  rises clear of the board. Not in the original scope, but reviews now happen on the
+  deployed build, and without *any* feedback a tap looks like nothing happened,
+  which would make a review build worthless. Milestone 04 still owns the real
+  four-channel treatment required by ADR-0002 constraint 3.
+- Face-pair composition derives from `count / 36` copies per face (4 for the turtle,
+  2 for easy-72) and is validated rather than assumed, so a future layout of an
+  unsupported size fails loudly instead of dealing a silently illegal set.
+- Reshuffling repoints existing tiles' UVs (`setTileFace`) instead of rebuilding
+  100+ geometries.
 
 ## Notes
 

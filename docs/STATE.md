@@ -4,7 +4,7 @@
 
 ## Last updated
 
-2026-07-27 by Claude (pivot from *Jimothy's Big Day Out* to *Dawn's Mahjong*, then milestone 01 implemented)
+2026-07-27 by Claude (pivot from *Jimothy's Big Day Out* to *Dawn's Mahjong*; milestones 01, 02 and 10 implemented)
 
 ## Current phase
 
@@ -12,23 +12,31 @@ development
 
 ## Current milestone
 
+Milestone 02 — [matching rules & a playable game](milestones/02-matching-rules-and-play.md) · **in-progress**: all 18 automated ACs green, the tap-accuracy playtest AC awaits Chris. **The game is winnable**: a full easy-72 board plays out in 70 taps to the win state.
+
 Milestone 01 — [clean slate & the board](milestones/01-clean-slate-and-board.md) · **in-progress**: all 20 automated ACs green, the two playtest ACs await Chris.
 
 Milestone 10 — [Pages deploy, early, for review](milestones/10-pages-deploy-for-review.md) · **in-progress**: deployed and verified live, only the on-tablet playtest AC remains. **The game is live at https://denzmilk.github.io/dawns-mahjong/** — every review happens there now, not on localhost.
 
 ## Last action
 
-Two things in one session.
+Three things in one session.
 
 **The pivot.** Ran the idea phase for *Dawn's Mahjong* — mahjong solitaire for Chris's 90-year-old grandmother Dawn, on a Samsung tablet, Elvis-themed. Agreed: classic dead-end rules plus 3 reshuffles and 10 hints, easy-72 as the default board with the classic 144-tile turtle as an option, fixed-tilt 3D presentation, procedural audio, installable offline PWA on GitHub Pages, fresh public repo. Deleted all Jimothy code, docs, tests, and the 40 MB GLB; kept `EventBus.js`, the Vite/Playwright config, and the architecture. Wrote `gameplan.md`, `tech.md`, ADRs 0001–0003, `backlog.md`, milestones 01–03. Consolidated assets under `public/assets/` (tile sheet, 18 Elvis images, self-hosted Atkinson Hyperlegible) and cropped `greeting-hero.jpg` from the Dawn-with-Elvis composite.
 
 **Milestone 01**, red-then-green. Wrote 20 failing tests first, then built: `Constants.js`, `GameState.js`, a mahjong `Events` map, `Game.js` (render-on-demand loop, shadows, centre-relative lighting), `Layouts.js` (both layouts on the half-tile lattice), `TileMeshes.js` (one texture + one material, per-tile baked UVs, placeholder faces), `CameraSystem.js` (fixed 20° tilt, exact analytic board fit), `main.js` with the test hooks, `index.html`, `style.css`, and `scripts/sync-assets.mjs`. Suite is 20/20 green in ~30 s. Captures in `output/iterate/`.
 
+**Milestone 10** (pulled forward out of 09 at Chris's request): GitHub Actions deploy to Pages, gated on `npm run verify:build`, which serves `dist/` from a `/dawns-mahjong` subpath in a real browser and fails on console errors, 4xx, leaked absolute asset paths, a missing font, or an unrendered board. **Live and verified at https://denzmilk.github.io/dawns-mahjong/.**
+
+**Milestone 02**, red-then-green again (43 new specs → 63 total, all green). `BoardRules.js` (pure: precomputed adjacency index, freeness, matching with the Elvis group, available pairs), `BoardGenerator.js` (pure: boards built by *playing* them, so every board ships with a known clearing order; plus a reshuffle with the same guarantee), `Rng.js` (seedable, so any board is reproducible from `?seed=`), `InputSystem.js` (taps only — a drag isn't a tap, a long press isn't a tap, a second finger cancels), tap forgiveness for unambiguous near-misses, hints (10) and reshuffles (3), win and dead-end states, and a stopgap selection lift. Verified end to end: a full easy-72 board plays out in 70 taps to `won`, clean console, no reshuffles needed.
+
 ## Next step
 
-**Chris reviews on the live URL** — https://denzmilk.github.io/dawns-mahjong/ (add `?layout=turtle-144` for the big board), ideally on Dawn's tablet. Two open playtest ACs from milestone 01: does the board read as a solid physical stack of tiles, and does the tilt give depth without hurting back-row legibility? Note the tile faces are deliberately crude placeholders until milestone 03.
+**Milestone 03 — real tile faces** (Chris chose 02 then 03, in order). Slice the 42 faces out of `public/assets/tiles/mahjong-tiles-sheet.png` with a measuring script, build the atlas, and lift the gold Greek-key border out for the table edge. The atlas machinery already exists with placeholder art, so this replaces the atlas *pixels* and inherits the single-material draw-call budget.
 
-Then milestone 02 (matching rules and a playable game) or milestone 03 (real tile faces from Chris's sheet) — 03 first if what matters is having something worth looking at on the live URL, since a placeholder board is hard to judge.
+Alongside that: **Chris reviews on the live URL** — https://denzmilk.github.io/dawns-mahjong/ (add `?layout=turtle-144` for the big board), ideally on Dawn's tablet. Two open playtest ACs from milestone 01: does the board read as a solid physical stack of tiles, and does the tilt give depth without hurting back-row legibility? Note the tile faces are deliberately crude placeholders until milestone 03.
+
+Milestone 02's exit condition is also his to test: play an easy-72 board start to finish by tapping, using a hint and a reshuffle along the way. Tapping a tile lifts it (a stopgap — the real unmissable selection treatment is milestone 04).
 
 ## Decisions taken this session
 

@@ -16,6 +16,11 @@ export const TILE = {
   // Each mesh is shrunk inside its lattice cell so neighbouring tiles show a
   // seam. Without it, a row of touching tiles reads as one solid slab.
   gap: 0.055,
+  // How far a selected tile lifts toward the camera. A deliberate stopgap: without
+  // *some* feedback a tap looks like nothing happened, which would make a review
+  // build worthless. Milestone 04 owns the real treatment — lift plus a thick gold
+  // outline, a slow pulse, and a glow, all at once (ADR-0002 constraint 3).
+  selectionLift: 0.3,
 };
 
 // Layout coordinates are in HALF-tile steps: a tile at (x, y) occupies
@@ -105,6 +110,26 @@ export const TIME = {
 export const ASSISTS = {
   hints: 10,
   shuffles: 3,
+};
+
+export const INPUT = {
+  // A tap is a tap: anything with travel is a drag, anything held is a long press,
+  // and neither should select a tile (ADR-0002 constraint 1).
+  tapMaxMovePx: 14,
+  tapMaxHoldMs: 900,
+  // How far outside a tile a tap still counts, in CSS pixels. Only ever applied
+  // when the tap hit no tile at all, and only when exactly one free tile is within
+  // range — an ambiguous near-miss does nothing rather than guessing. This is what
+  // makes the 144-tile turtle usable at 47 dp per tile on a 10–11" tablet.
+  tapForgivenessPx: 16,
+};
+
+export const TIMING = {
+  // How long a mismatched pair is held before it releases. Long enough to register
+  // as "those two don't go together", short enough not to feel like a punishment.
+  mismatchHold: 0.65,
+  // How long a hint stays lit. Generous: she may need to look away and back.
+  hintHold: 5,
 };
 
 // The 42 faces on Chris's tile sheet. Order matters: it is the atlas cell order
