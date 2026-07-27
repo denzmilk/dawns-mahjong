@@ -163,22 +163,26 @@ export const ENTRANCE = {
 export const CELEBRATION = {
   // Eight of them, picked at random with no immediate repeat, because clearing a
   // pair is the whole reward loop and the same flourish 36 times is wallpaper.
-  duration: 1.05,
-  finaleDuration: 2.6,
+  //
+  // Doubled on Chris's instruction (2026-07-27): everything below flies higher, bursts
+  // twice as hard, escalates twice as often and finishes with a much longer finale.
+  duration: 1.15,
+  finaleDuration: 5.2,
   // Every Nth match gets the bigger treatment.
-  escalateEvery: 6,
-  liftHeight: 5.5,
+  escalateEvery: 3,
+  liftHeight: 7,
   shardGrid: 3,
   spinTurns: 2.5,
 };
 
 export const PARTICLES = {
   // Pooled and capped: create/destroy churn per burst is what drops frames on a
-  // mid-range tablet GPU.
-  poolSize: 900,
-  burst: 46,
-  finaleBurst: 240,
-  size: 0.3,
+  // mid-range tablet GPU. The pool is sized for the doubled bursts plus overlap —
+  // exceeding it recycles the oldest particles rather than allocating.
+  poolSize: 2400,
+  burst: 95,
+  finaleBurst: 520,
+  size: 0.36,
   gravity: -7.5,
   drag: 0.86,
   lifespan: 1.5,

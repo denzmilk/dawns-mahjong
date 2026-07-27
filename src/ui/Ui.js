@@ -43,8 +43,6 @@ export class Ui {
       resume: document.getElementById('btn-resume'),
       play: document.getElementById('btn-play'),
       choices: document.querySelectorAll('.choice-button'),
-      install: document.getElementById('btn-install'),
-      installHelp: document.getElementById('install-help'),
       boardsDone: document.getElementById('boards-done'),
 
       won: document.getElementById('won'),
@@ -135,7 +133,6 @@ export class Ui {
     );
     this.el.wonHome.addEventListener('click', () => eventBus.emit(Events.UI_HOME, {}));
     this.el.stuckHome.addEventListener('click', () => eventBus.emit(Events.UI_HOME, {}));
-    this.el.install.addEventListener('click', () => eventBus.emit(Events.UI_INSTALL, {}));
 
     for (const button of this.el.choices) {
       button.addEventListener('click', () => this.setLayoutChoice(button.dataset.layout));
@@ -202,13 +199,15 @@ export class Ui {
     }
   }
 
-  setInstallAvailable(available) {
-    this.el.install.classList.toggle('hidden', !available);
-  }
+  /**
+   * Chris removed the install button from the greeting (2026-07-27): one less thing on
+   * the front screen. Installing still works from the browser's own menu, and the
+   * service worker still caches everything for offline play — these remain so
+   * InstallSystem has something to talk to if a button ever comes back.
+   */
+  setInstallAvailable() {}
 
-  showInstallHelp() {
-    this.el.installHelp.classList.remove('hidden');
-  }
+  showInstallHelp() {}
 
   setMuted(muted) {
     this.el.soundIcon.textContent = muted ? '🔇' : '🔊';

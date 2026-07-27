@@ -19,9 +19,13 @@ and it opens with the wifi off.
 - `scripts/build-sw.mjs` — runs as part of `npm run build`, writing `dist/sw.js` with
   every built file precached and a cache name hashed from their contents, so a new
   build always lands in a fresh cache and the old one is deleted.
-- `src/systems/InstallSystem.js` — a big **"Put this on my tablet"** button driven by
-  `beforeinstallprompt`, with written fallback steps for Samsung Internet (which often
-  never fires it), hidden once running standalone.
+- `src/systems/InstallSystem.js` — service worker registration, and the
+  `beforeinstallprompt` plumbing.
+- **The install button was removed from the greeting screen on Chris's instruction
+  (2026-07-27):** one less thing on the front screen, which she never needs to press
+  twice. Installing is done once, by Chris, from the browser's own menu (**Add page to
+  → Home screen**). Offline play and the home-screen icon are unaffected — those come
+  from the manifest and the service worker, not from the button.
 
 ## Out of scope
 
@@ -42,12 +46,12 @@ and it opens with the wifi off.
 - [x] A maskable icon is declared — test: `::the manifest and icons are served`
 - [x] The built site works from the project-site subpath, service worker included — `npm run verify:build`, which is also the CI deploy gate
 - [x] The service worker is not registered in dev, so changes never appear cached — guarded in `registerServiceWorker()`
-- [ ] The game installs from the live URL onto Dawn's tablet, opens from its own icon, and plays with the wifi off — verified by user playtest
+- [ ] The game installs from the live URL onto Dawn's tablet **via the browser menu**, opens from its own icon, and plays with the wifi off — verified by user playtest
 
 ## Exit condition
 
-Chris opens the live URL on her tablet, presses *Put this on my tablet*, and the game
-opens from the home screen in aeroplane mode.
+Chris opens the live URL on her tablet, adds it to the home screen from the browser
+menu, and the game opens from its own icon in aeroplane mode.
 
 ## Test plan
 

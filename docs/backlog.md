@@ -28,10 +28,10 @@ When an entry is **rejected**, wrap the title in `~~strikethrough~~` and add a o
   - Rough size: S · Rough value: M
   - Notes: Standard in modern mahjong apps and a real kindness, but it makes the 10-hint economy meaningless, so it stays off by default. Decided in ADR-0002's alternatives. Promote if she finds the game hard.
 
-- [ ] **More layouts** — a few extra board shapes beyond easy-72 and turtle-144 (cat, heart, bridge, pyramid).
-  - Source: 2026-07-27 planning session (three-size option was offered and not chosen)
-  - Rough size: M · Rough value: M
-  - Notes: Pure data in `Layouts.js` once milestone 01 lands. A 36-tile "quick game" is probably the most valuable addition — a 2-minute board for a bad day.
+- [ ] **More layouts** — extra board shapes beyond easy-72 and turtle-144.
+  - Source: 2026-07-27 planning session; raised again by Chris on 2026-07-27 ("she plays a lot of this style, she might be used to different shapes")
+  - Rough size: M · Rough value: L
+  - Notes: Pure data in `Layouts.js` — each shape is a list of `{x, y, layer}` on the half-tile lattice, and generation/solvability comes free. The shapes players actually know come from Windows **Mahjong Titans** (Turtle, Dragon, Cat, Fortress, Crab, Spider) and the older *Shanghai* games; all are 144 tiles. A 36-tile "quick game" is still the most valuable *easy* addition — a 2-minute board for a bad day. Awaiting Chris's choice of which shapes.
 
 - [ ] **Gentle daily greeting variation** — rotate the greeting line under "Good morning, Dawn" so it isn't word-identical every day.
   - Source: 2026-07-27 planning session

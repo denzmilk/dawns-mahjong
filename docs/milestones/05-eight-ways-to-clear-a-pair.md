@@ -24,7 +24,11 @@ deterministically under `advanceTime()`.
   game. Pooled because create/destroy churn per celebration is what drops frames on a
   tablet GPU, and this fires on every match.
 - Entrance: tiles fly in and stack themselves, bottom layers first.
-- Escalation every 6th match, and a rolling multi-volley finale on board clear.
+- Escalation every 3rd match, and a rolling multi-volley finale on board clear.
+- **Doubled on 2026-07-27** at Chris's request: bursts roughly twice the particles,
+  tiles fly higher, escalation twice as often, and the finale runs 5.2s instead of 2.6.
+  The particle pool was raised to match so a doubled burst overlapping another still
+  recycles rather than allocating.
 
 ## Out of scope
 

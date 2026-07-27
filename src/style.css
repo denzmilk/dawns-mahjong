@@ -390,14 +390,34 @@ body {
 .choice-button {
   min-height: var(--touch-min);
   padding: 0.4rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
   font-family: inherit;
-  font-size: max(22px, 2.4vh);
   font-weight: 700;
   color: var(--cream);
   background: rgba(9, 26, 17, 0.9);
   border: 3px solid var(--gold-dim);
   border-radius: 16px;
   cursor: pointer;
+}
+
+/* The tile count leads, because that is what tells her how long a game will take —
+   the shape name is a hint for someone who already knows these boards. */
+.choice-count {
+  font-size: max(26px, 2.8vh);
+  color: var(--gold);
+}
+
+.choice-button[aria-pressed='true'] .choice-count {
+  color: var(--felt);
+}
+
+.choice-name {
+  font-size: max(17px, 1.7vh);
+  opacity: 0.85;
 }
 
 .choice-button[aria-pressed='true'] {
