@@ -11,17 +11,23 @@ test('upper layers occlude lower layers', async ({ page }) => {
 
   // Find upper/lower pairs whose screen rects genuinely overlap — on a tilted
   // camera the upper layer always covers part of the tiles behind it.
+  // Sampled at the CENTRE of the upper tile, and only for pairs where that centre falls
+  // inside the lower tile's rect. Sampling the middle of the overlap region is unreliable:
+  // screen rects are axis-aligned boxes around tilted 3D tiles, so they can overlap where
+  // the tiles themselves do not — which made this test fail on a board whose footprint
+  // changed shape.
   let checked = 0;
   for (const up of upper) {
-    const covered = lower.filter((low) => overlap(tileBox(up), tileBox(low), 8));
-    for (const low of covered.slice(0, 2)) {
-      const a = tileBox(up);
+    const a = tileBox(up);
+    const cx = Math.round(up.screen.cx);
+    const cy = Math.round(up.screen.cy);
+    const beneath = lower.filter((low) => {
       const b = tileBox(low);
-      const x = Math.round((Math.max(a.x, b.x) + Math.min(a.x + a.width, b.x + b.width)) / 2);
-      const y = Math.round((Math.max(a.y, b.y) + Math.min(a.y + a.height, b.y + b.height)) / 2);
-      const hit = await pickAt(page, x, y);
-      // Whatever is at an overlap point must not be the tile underneath.
-      expect(hit, `point (${x},${y}) resolved to the covered tile ${low.id}`).not.toBe(low.id);
+      return cx > b.x && cx < b.x + b.width && cy > b.y && cy < b.y + b.height && overlap(a, b, 8);
+    });
+    for (const low of beneath.slice(0, 2)) {
+      const hit = await pickAt(page, cx, cy);
+      expect(hit, `centre of upper tile ${up.id} resolved to covered tile ${low.id}`).not.toBe(low.id);
       checked++;
       if (checked >= 12) break;
     }

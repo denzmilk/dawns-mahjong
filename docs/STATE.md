@@ -59,6 +59,28 @@ Three things in one session.
   worker, not the button.
 - **Boards are named by tile count**, with the shape as a secondary hint.
 
+## Boards are now built to fit the screen (2026-07-28)
+
+Chris's observation, and it was the right one: turning a wide board upright just makes a
+tall ribbon — a 12 × 4 board becomes 4 × 12, and both waste the screen. Tile size comes
+from how much of the screen the board uses, so the *footprint itself* is now chosen from
+the screen's proportions at deal time (`buildFittedBoard` in `src/board/ShapeGenerator.js`),
+then stacked by the same erosion the surprise board uses. Traditional silhouettes are given
+up for these boards on purpose — he asked for all the screen, and a turtle cannot also be
+the shape of a tablet held upright. The six named 144-tile shapes keep their silhouettes.
+
+The camera also now fits the board into the strip the bar leaves free **and** slides it
+clear — both halves are needed, and the earlier attempts failed because the board bounds
+were being measured mid-entrance-animation, not because the approach was wrong.
+
+Measured at 800 × 1280 dp upright: **72 tiles at 81 dp** (was 51), 36 tiles at 107, 24 tiles
+at 126. Nothing sits under the buttons any more. The ~15% the bar strip costs is a
+deliberate trade: a tile under a button cannot be tapped at all.
+
+Only the two small boards are promised 64 dp. The middle boards land at 48–62 dp depending
+on orientation and display size, and the 144-tile shapes lower still — recorded in the tests
+rather than smoothed over.
+
 ## She plays in portrait, and wanted bigger tiles (2026-07-28)
 
 Both came from Dawn actually playing it, and both changed real decisions.

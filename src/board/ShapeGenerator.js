@@ -205,3 +205,54 @@ export function generateShape(rng = Math.random) {
 
   return null;
 }
+
+/**
+ * A board built to fit the screen it will be played on.
+ *
+ * Chris's point (2026-07-28): a board authored 12 wide by 4 deep wastes most of a portrait
+ * screen, and turning it makes a 4 × 12 ribbon that wastes it the other way. Neither uses
+ * the space, and tile size is set by how much space is used. So rather than turning a
+ * fixed shape, the footprint is *chosen* from the screen's own proportions, then stacked
+ * by the same erosion the surprise board uses — which is what guarantees every tile above
+ * the base has one beneath it.
+ *
+ * Traditional silhouettes are given up here on purpose: he asked for all the screen, and a
+ * turtle cannot be both a turtle and the shape of a tablet held upright.
+ */
+export function buildFittedBoard(count, viewportAspect, tileAspect = 1.32) {
+  if (count % 2 !== 0) throw new Error(`a board needs an even tile count, got ${count}`);
+
+  // Tiles are taller than they are wide, so a square-looking board needs more columns
+  // than rows: this is the column:row ratio that makes the board's shape match the
+  // screen's.
+  const ratio = Math.max(0.25, viewportAspect * tileAspect);
+
+  // Start from a footprint big enough to hold most of the tiles on the base, then grow it
+  // until the whole stack can hold the full count.
+  for (let base = Math.max(6, Math.round(count * 0.55)); base <= count * 2; base += 2) {
+    const rows = Math.max(2, Math.round(Math.sqrt(base / ratio)));
+    const cols = Math.max(2, Math.round(rows * ratio));
+
+    const grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 1));
+    const layers = [grid];
+    while (layers.length < SURPRISE.maxLayers) {
+      const next = erode(layers[layers.length - 1]);
+      if (countGrid(next) === 0) break;
+      layers.push(next);
+    }
+    const total = layers.reduce((sum, layer) => sum + countGrid(layer), 0);
+    if (total < count) continue;
+
+    const trimmed = trimTo(layers, count);
+    const tiles = [];
+    trimmed.forEach((layer, index) => {
+      layer.forEach((line, row) => {
+        line.forEach((cell, col) => {
+          if (cell) tiles.push({ x: col * 2, y: row * 2, layer: index });
+        });
+      });
+    });
+    if (tiles.length === count) return { cols, rows, tiles };
+  }
+  return null;
+}

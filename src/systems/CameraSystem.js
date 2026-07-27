@@ -26,7 +26,12 @@ export class CameraSystem {
    * no tile at all — fitting to it cost about 4% of tile size on every multi-layer
    * board, which is the difference between clearing the 64 dp touch floor and not.
    */
-  frame(points, centre, width, height) {
+  frame(points, centre, width, height, inset = { top: 0, bottom: 0 }) {
+    // The bar covers a strip of the screen, so the board is fitted to what is left and
+    // then slid clear of it. Both halves are needed: fitting alone leaves the board
+    // centred on the canvas (still under the bar), and sliding alone makes it overflow
+    // the opposite edge.
+    const usable = Math.max(160, height - inset.top - inset.bottom);
     this.camera.aspect = width / height;
     this.target.copy(centre);
 
@@ -34,8 +39,9 @@ export class CameraSystem {
     this.camera.lookAt(this.target);
     this.camera.updateMatrixWorld(true);
 
-    const tanV = Math.tan(THREE.MathUtils.degToRad(CAMERA.fov) / 2);
-    const tanH = tanV * this.camera.aspect;
+    const tanFull = Math.tan(THREE.MathUtils.degToRad(CAMERA.fov) / 2);
+    const tanV = tanFull * (usable / height);
+    const tanH = tanFull * this.camera.aspect;
     const inverse = new THREE.Matrix4().copy(this.camera.matrixWorld).invert();
     const corner = new THREE.Vector3();
 
@@ -51,6 +57,13 @@ export class CameraSystem {
     }
 
     this.distance = (1 + pushback) * CAMERA.margin;
+
+    // Slide the board into the middle of the usable strip. Screen-up is -z for this fixed
+    // camera, so a bar at the bottom (inset.bottom) moves the board towards -z.
+    const shiftPixels = (inset.top - inset.bottom) / 2;
+    const worldPerPixel = (2 * tanFull * this.distance) / height;
+    this.target.z -= shiftPixels * worldPerPixel;
+
     this.camera.position.copy(this.target).addScaledVector(this.direction, this.distance);
     this.camera.lookAt(this.target);
     this.camera.updateProjectionMatrix();

@@ -835,12 +835,7 @@ export class Game {
     const bounds = this.boardBounds();
     const centre = bounds.getCenter(new THREE.Vector3());
 
-    // Note: no allowance is made for the bar here. Reserving table on the bar's side
-    // while the camera still centres on the board costs DOUBLE the reservation (the
-    // frustum has to grow symmetrically), which cost more than half the tile size when
-    // tried. Doing it properly means reserving and shifting the look-at target together
-    // — see docs/backlog.md. A few tiles can sit under the bar's buttons until then.
-    this.cameraSystem.frame(this.framingPoints(), centre, width, height);
+    this.cameraSystem.frame(this.framingPoints(), centre, width, height, measureHudInset());
     this.fitShadowCamera();
     this.invalidateShadows();
   }
@@ -1063,12 +1058,20 @@ const round = (n) => Math.round(n * 100) / 100;
  * top (landscape), null when it isn't showing. Read from the DOM rather than assumed,
  * because a CSS media query is what moves it.
  */
-/** How tall the in-game bar is on screen, including a small gap. 0 when it isn't up. */
-function measureHudHeight() {
+/**
+ * The strip of screen the in-game bar covers, top and bottom, in CSS pixels. Measured from
+ * the DOM because a media query is what moves the bar to the bottom in portrait, and its
+ * height depends on the type scale.
+ */
+function measureHudInset() {
   const hud = document.getElementById('hud');
-  if (!hud || hud.classList.contains('hidden')) return 0;
+  if (!hud || hud.classList.contains('hidden')) return { top: 0, bottom: 0 };
   const box = hud.getBoundingClientRect();
-  return box.height ? box.height + 12 : 0;
+  if (!box.height) return { top: 0, bottom: 0 };
+  const gap = 10;
+  return box.top > window.innerHeight / 2
+    ? { top: 0, bottom: window.innerHeight - box.top + gap }
+    : { top: box.bottom + gap, bottom: 0 };
 }
 
 function hudIsAtBottom() {

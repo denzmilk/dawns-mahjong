@@ -1,5 +1,5 @@
 import { SURPRISE } from '../core/Constants.js';
-import { generateShape } from './ShapeGenerator.js';
+import { buildFittedBoard, generateShape } from './ShapeGenerator.js';
 
 // Board shapes as pure data. No Three.js, no DOM — these are imported directly
 // by tests.
@@ -132,7 +132,32 @@ export function bestOrientation(tiles, viewportAspect, tileAspect) {
   return mismatch(rows, cols) < mismatch(cols, rows) ? 'turned' : 'as-authored';
 }
 
+/**
+ * The boards chosen by tile count rather than by shape. Their footprint is built from the
+ * screen's proportions at deal time, so they fill a tablet held either way instead of
+ * leaving half of it empty. The named shapes (turtle, dragon, cat…) keep their silhouettes.
+ */
+export const FITTED_BOARDS = {
+  'quick-24': 24,
+  'garden-36': 36,
+  'steps-48': 48,
+  'easy-72': 72,
+  'pagoda-96': 96,
+};
+
 export function getLayout(id, { rng = Math.random, portrait = false, viewportAspect = null, tileAspect = 1.32 } = {}) {
+  // Built to fit the screen when we know its shape; the authored masks stay as the
+  // fallback, which is what the layout tests assert against.
+  if (FITTED_BOARDS[id] && viewportAspect !== null) {
+    const fitted = buildFittedBoard(FITTED_BOARDS[id], viewportAspect, tileAspect);
+    if (fitted) {
+      return {
+        ...LAYOUTS[id],
+        tiles: withIds(fitted.tiles),
+        fitted: `${fitted.cols}×${fitted.rows}`,
+      };
+    }
+  }
   const shouldTurn = (tiles) => {
     if (viewportAspect === null) return portrait;
     return bestOrientation(tiles, viewportAspect, tileAspect) === 'turned';
