@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="8" fill="#12301F"/>
+  <!-- An ivory tile on the felt, with a bamboo glyph: reads at 16px as a light
+       rectangle on green, which is exactly what the board looks like. -->
+  <g>
+    <rect x="16" y="9" width="34" height="46" rx="5" fill="#C9BE9E"/>
+    <rect x="14" y="7" width="34" height="46" rx="5" fill="#F7F2E4"/>
+    <g fill="none" stroke="#1F6B3A" stroke-width="4" stroke-linecap="round">
+      <path d="M31 16v28"/>
+      <path d="M24 22h14"/>
+      <path d="M24 38h14"/>
+    </g>
+  </g>
+</svg>

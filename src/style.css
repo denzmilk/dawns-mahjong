@@ -1,0 +1,80 @@
+/* Atkinson Hyperlegible — designed by the Braille Institute for low-vision
+   readers: letterforms are pulled deliberately apart so 1/l/I and 0/O can't be
+   confused. Self-hosted rather than loaded from a CDN so the game still reads
+   correctly with the wifi off (ADR-0002, docs/tech.md). */
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/assets/fonts/atkinson-hyperlegible-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/assets/fonts/atkinson-hyperlegible-700.woff2') format('woff2');
+}
+
+:root {
+  --felt: #12301f;
+  --felt-dark: #0a1a11;
+  --gold: #e8c547;
+  --ivory: #f7f2e4;
+  --cream: #faf6ea;
+  --elvis-red: #c1272d;
+
+  /* Type scale floors from ADR-0002 constraint 4. Nothing in this game may set a
+     size below --text-body. */
+  --text-body: 24px;
+  --text-button: 32px;
+  --text-greeting: 76px;
+  --touch-min: 64px;
+
+  font-family: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: var(--text-body);
+  color: var(--cream);
+  /* Suppress the Android/iOS gestures that could strand the view. The JS side
+     cancels the events; this stops the browser acting before they fire. */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--felt-dark);
+  overscroll-behavior: none;
+}
+
+body {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#game-container {
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+}
+
+#game-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}

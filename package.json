@@ -1,0 +1,21 @@
+{
+  "name": "dawns-mahjong",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Mahjong solitaire built for Dawn — 90, Elvis fan, playing on a Samsung tablet.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "playwright test",
+    "assets:sync": "node scripts/sync-assets.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "vite": "^8.1.1"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
+  }
+}

@@ -1,0 +1,114 @@
+# Tech stack
+
+## Engine / runtime
+
+- **Engine:** Three.js `^0.185.1` (already installed from the previous project in this directory; version to be re-checked against the latest release when milestone 01 starts)
+- **Language(s):** JavaScript (ES modules) — no TypeScript, see *Out-of-scope dependencies*
+- **Target platforms:** Android tablet browser (Chrome / Samsung Internet) as the **primary and only real target** — a Samsung tablet, landscape, touch only. Desktop Chrome is a development convenience, not an audience. Installable to the home screen as a PWA and fully playable offline.
+
+## Libraries / frameworks
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| three | ^0.185.1 | Rendering the 3D board, tiles, and match animations. Also the raycaster used for tap-picking tiles. |
+| vite | ^8.1.1 | Dev server and production build |
+| @playwright/test | ^1.61.1 | Gameplay logic tests, rule tests, and pixel-readback visual checks |
+| Atkinson Hyperlegible | v12 (OFL 1.1) | The only font. Self-hosted woff2, 22 KB for both weights — see *Asset pipeline* |
+| vite-plugin-pwa | TBD at milestone 09 | Web app manifest + service worker precache so the game installs to her home screen and runs with the wifi off. Version and API to be read from current docs at that milestone, not from memory. |
+
+Nothing else. No physics engine (ADR-0003), no UI framework, no audio library, no tween library, no font packages.
+
+## Tooling
+
+- **Package manager:** npm
+- **Build:** Vite (`npm run build` → `dist/`), `base: './'` so the same build works locally and on a GitHub Pages project site
+- **Dev server port: 3100, with `strictPort: true`.** Another of Chris's projects occupies 3000, and Vite's default behaviour is to slide quietly to the next free port — which had the whole browser test suite asserting against a different app. A port clash must fail loudly.
+- **Testing:** Playwright — `npx playwright test` (auto-starts the dev server via `playwright.config.js` `webServer` and reuses a running one)
+- **Linting / formatting:** none. Deliberate: single-developer project, small codebase.
+- **Asset / binary storage:** plain git, no LFS. Total asset weight is ~9 MB (one tile sheet + 17 Elvis images) and must be brought **down** rather than allowed to grow — see *Asset pipeline*.
+
+## Project layout
+
+```
+index.html               # single page; HTML/CSS overlay for all UI
+src/
+  main.js                # entry — creates Game, exposes window test hooks
+  core/
+    Game.js              # orchestrator: scene, renderer, render loop
+    EventBus.js          # pub/sub singleton + the Events map (retained from the scaffold)
+    GameState.js         # single state object + reset()
+    Constants.js         # every tuned number, colour, timing, and layout dimension
+  board/
+    Layouts.js           # tile position data for easy-72 and turtle-144
+    BoardGenerator.js    # solvable face assignment (built backwards from a solution)
+    BoardRules.js        # free-tile test, match test, available-pair search
+    TileMeshes.js        # tile geometry, atlas UVs, per-tile mesh management
+  systems/
+    InputSystem.js       # pointer → raycast → tile pick; blocks every other gesture
+    CameraSystem.js      # fixed tilted camera + responsive framing
+    AudioSystem.js       # procedural Web Audio (milestone 06)
+    SaveSystem.js        # versioned localStorage read/write (milestone 07)
+  fx/
+    Celebrations.js      # the eight match animations (milestone 05)
+    Particles.js         # pooled THREE.Points bursts
+  ui/
+    GreetingScreen.js    # time-of-day greeting (milestone 04)
+    Hud.js               # tiles remaining, hint/shuffle/sound buttons
+    EndScreens.js        # win + no-moves screens
+  assets/
+    TileSheet.js         # runtime slicing of the supplied sheet into an atlas
+  style.css
+public/
+  assets/tiles/mahjong-tiles-sheet.png    # Chris's supplied sheet (1024×1024, 42 faces)
+  assets/elvis/*.jpg|webp                 # Elvis photos, kebab-case
+Assets/                  # Chris's raw drop zone — `npm run assets:sync` normalises
+                         # names and moves files into public/assets/elvis/
+tests/                   # *.spec.js Playwright specs
+docs/                    # gameplan, tech, milestones, ADRs, backlog, STATE
+```
+
+`board/`, `fx/`, and `ui/` folders are created as the milestones that need them land — not up front.
+
+## Asset pipeline
+
+- **Tile faces — sliced at runtime, no build step.** The supplied sheet is a 1024×1024 *preview* image: 42 tile faces arranged in labelled rows with drop shadows. At boot the game loads that single PNG, crops the 42 face rectangles into an offscreen canvas atlas, and uploads it as one `THREE.Texture`; each tile's box geometry carries baked UVs pointing at its face. One texture, one material, ~144 draw calls.
+  - The crop rectangles are **measured, not hand-guessed**: a one-off script detects the ivory tile rectangles in the sheet and writes the coordinates into `Constants.js`, so a re-export of the sheet can be re-measured rather than re-eyeballed.
+  - Faces land at roughly 90×110 px. Adequate for tablet tile size; if they read soft on her screen, the fallback is a higher-resolution sheet from Chris (the filename suggests one exists) — swap the file, re-measure, done.
+- **The gold Greek-key border** in the same sheet is cropped and tiled as the table-edge texture, so frame and tiles match by construction.
+- **Elvis photos:** dropped by Chris into `Assets/`, normalised into `public/assets/elvis/` by `npm run assets:sync`. Eight are cropped square for tile faces; the rest are greeting/win portraits, with `dawn-with-elvis-1.jpg` as the greeting hero. They ship as-is for now but must be **downscaled** — 9 MB is a slow first load on tablet wifi and all of it gets precached by the service worker; tile faces need ~256 px, the hero ~1600 px.
+  - The two `dawn-with-elvis-*.jpg` images are generated composites, and their backgrounds contain gibberish poster text. Crop the greeting hero tight to the two figures (see backlog) — garbled text reads as "the game is broken" to a non-technical player.
+- **Licensing:** the Elvis images are third-party publicity photographs. Fine for a family gift; worth knowing that GitHub Pages makes the URL public. If that matters, narrow the set to images Chris owns or that are public domain. **No Elvis audio recordings are used anywhere** — all sound is synthesised (see below), which sidesteps the question entirely for music.
+- **Audio:** procedural Web Audio, generated in code. No files. Melodic content is original — no transcriptions of Elvis songs.
+- **Fonts: Atkinson Hyperlegible**, self-hosted from `public/assets/fonts/` (both weights total 22 KB, plus the OFL licence the font's terms require shipping). Designed by the Braille Institute for low-vision readers — its letterforms are pulled deliberately apart so 1/l/I and 0/O can't be confused — and it is a handsome humanist sans rather than a clinical accessibility face. Self-hosted rather than loaded from Google Fonts so the game still reads correctly offline. No other font is used anywhere.
+
+## Conventions
+
+- **Code naming:** camelCase functions/variables, PascalCase classes, kebab-case filenames for assets, PascalCase filenames for modules (matching the retained scaffold).
+- **State:** one `GameState` singleton with `reset()`; systems read it, events mutate it. Modules never import each other — all cross-module traffic goes through `EventBus` with `domain:action` event names declared in the `Events` map.
+- **Constants:** every tuned number, colour, duration, and layout dimension lives in `src/core/Constants.js`. Zero magic numbers in game logic — this is the house rule that keeps "it feels wrong" bugs findable.
+- **Rules are pure functions.** `BoardRules.js` and `BoardGenerator.js` take state and return values — no Three.js imports, no DOM. They are the most correctness-critical code in the project and must be testable without a renderer.
+- **Test hooks:** `window.render_game_to_text()` returns a JSON snapshot (board state, free tiles, selection, assists remaining, screen); `window.advanceTime(seconds)` steps animations deterministically. Both are how tests and agents inspect the game without screenshots.
+- **Render on demand.** The render loop only runs continuously while something is animating; a static board renders one frame and stops. This is a battery decision for a tablet that will sit on the arm of a chair mid-game.
+- **Touch is the only input.** A single tap is the entire control scheme. Pinch-zoom, double-tap-zoom, long-press context menus, text selection, and overscroll are all suppressed in CSS/JS — see ADR-0002.
+
+## Testing
+
+- Playwright drives a **tablet-sized viewport** (default 1280×800 landscape, plus an 800×1340-class check) rather than a desktop one, because layout legibility is a hard requirement, not polish.
+- Rule tests (freeness, matching, solvability, hint validity, shuffle validity) run against the pure functions and are the suite's backbone — a rules bug is the one class of bug that would make the game unplayable for someone who can't debug it.
+- WebGL screenshots composite black under headless SwiftShader. Visual assertions read pixels back off the canvas instead; captures for review go in `output/iterate/`.
+
+## Deployment
+
+- **GitHub Pages** from a new public repo, `denzmilk/dawns-mahjong`, built by a GitHub Actions workflow that publishes `dist/`.
+- `vite.config.js` already uses `base: './'`, so a project-site path (`/dawns-mahjong/`) needs no extra config. The service worker registration and manifest paths must be relative for the same reason — the one PWA gotcha on project sites.
+- **Install to home screen:** the front screen shows a big *Install on this tablet* button when the browser offers `beforeinstallprompt`, with written fallback steps for Samsung Internet (menu → Add page to → Home screen). The button hides itself once running in `display-mode: standalone`.
+
+## Out-of-scope dependencies
+
+- **Physics engine (cannon-es)** — removed. The match animations are scripted, not simulated; see ADR-0003.
+- **TypeScript** — small codebase, one developer, fast iteration.
+- **React / Vue / any UI framework** — the UI is five buttons and three screens of HTML.
+- **Tween libraries (GSAP, tween.js)** — the animation needs are a few dozen lines of eased interpolation driven off the existing render loop.
+- **Audio libraries (Howler)** — procedural Web Audio only.
+- **Networking / accounts / analytics / ads** — see the gameplan anti-goals. The game makes zero network requests after load, by design.
+- **CDN-hosted or remotely-loaded fonts** — Atkinson Hyperlegible ships in the repo instead, so nothing breaks offline. It is the only font in the project.
