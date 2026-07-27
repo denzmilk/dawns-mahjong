@@ -1,4 +1,9 @@
-import { LAYOUTS } from '../board/Layouts.js';
+import { LAYOUTS, LAYOUT_IDS } from '../board/Layouts.js';
+import { SURPRISE } from '../core/Constants.js';
+
+// The surprise board has no fixed tile list — it is generated per game — so the menu
+// needs a stand-in to label its button with.
+const SURPRISE_BOARD = { id: SURPRISE.id, name: 'Surprise', tiles: { length: SURPRISE.tiles } };
 import { Events, eventBus } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 import { borderBackgroundCss } from '../assets/TileSheet.js';
@@ -34,6 +39,12 @@ export class Ui {
       sound: document.getElementById('btn-sound'),
       soundIcon: document.getElementById('sound-icon'),
       home: document.getElementById('btn-home'),
+      legendButton: document.getElementById('btn-legend'),
+      legend: document.getElementById('legend'),
+      legendClose: document.getElementById('btn-legend-close'),
+      legendPair: document.getElementById('legend-pair'),
+      legendElvis: document.getElementById('legend-elvis'),
+      legendFree: document.getElementById('legend-free'),
       nudge: document.getElementById('stuck-nudge'),
 
       greeting: document.getElementById('greeting'),
@@ -42,7 +53,7 @@ export class Ui {
       hero: document.getElementById('greeting-hero'),
       resume: document.getElementById('btn-resume'),
       play: document.getElementById('btn-play'),
-      choices: document.querySelectorAll('.choice-button'),
+      boardButtons: document.getElementById('board-buttons'),
       boardsDone: document.getElementById('boards-done'),
 
       won: document.getElementById('won'),
@@ -58,6 +69,7 @@ export class Ui {
     };
 
     this.applyFrame();
+    this.buildBoardChoices();
     this.setGreeting();
     this.wireButtons();
     this.subscribe();
@@ -101,6 +113,60 @@ export class Ui {
     }
   }
 
+  /**
+   * One button per board, built from LAYOUTS so adding a shape to that file is all it
+   * takes. The tile count leads because that is what tells her how long a game will
+   * take; the shape name is a hint for someone who already knows these boards.
+   */
+  buildBoardChoices() {
+    this.el.boardButtons.replaceChildren();
+    for (const id of LAYOUT_IDS) {
+      const layout = LAYOUTS[id] || SURPRISE_BOARD;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'choice-button';
+      button.dataset.layout = id;
+      const count = document.createElement('span');
+      count.className = 'choice-count';
+      count.textContent = String(layout.tiles.length);
+      const name = document.createElement('span');
+      name.className = 'choice-name';
+      name.textContent = layout.id === 'easy-72' ? 'tiles · easy' : `tiles · ${layout.name.toLowerCase()}`;
+      const tick = document.createElement('span');
+      tick.className = 'choice-tick hidden';
+      tick.textContent = '✓';
+      button.append(tick, count, name);
+      this.el.boardButtons.append(button);
+    }
+    this.el.choices = this.el.boardButtons.querySelectorAll('.choice-button');
+  }
+
+  /**
+   * Fills the how-to-play pictures from the real tile atlas, so the legend can never
+   * drift from what the board actually looks like.
+   */
+  buildLegendArt(atlasCanvas, faceCell) {
+    if (!atlasCanvas) return;
+    const draw = (host, faces, dim = []) => {
+      if (!host) return;
+      host.replaceChildren();
+      faces.forEach((face, i) => {
+        const cell = faceCell(face);
+        if (!cell) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = cell.w;
+        canvas.height = cell.h;
+        canvas.getContext('2d').drawImage(atlasCanvas, cell.x, cell.y, cell.w, cell.h, 0, 0, cell.w, cell.h);
+        if (dim.includes(i)) canvas.classList.add('is-dim');
+        host.append(canvas);
+      });
+    };
+    draw(this.el.legendPair, ['dragon-red', 'dragon-red']);
+    draw(this.el.legendElvis, ['elvis-1', 'elvis-4']);
+    // The third row shows the difference itself: one bright, one knocked back.
+    draw(this.el.legendFree, ['bamboo-3', 'bamboo-7'], [1]);
+  }
+
   /** "Good morning, Dawn" — from the tablet's own clock. */
   setGreeting(now = new Date()) {
     const hour = now.getHours();
@@ -137,10 +203,24 @@ export class Ui {
     for (const button of this.el.choices) {
       button.addEventListener('click', () => this.setLayoutChoice(button.dataset.layout));
     }
+
+    // How to play: one way in, one way out. It sits over the board rather than
+    // replacing it, so pressing Back always returns her to the game she was playing.
+    this.el.legendButton.addEventListener('click', () => this.setLegendOpen(true));
+    this.el.legendClose.addEventListener('click', () => this.setLegendOpen(false));
+  }
+
+  setLegendOpen(open) {
+    this.el.legend.classList.toggle('hidden', !open);
+    // The bar stays out of the way while it is up: nothing behind it is tappable.
+    this.el.hud.classList.toggle('hidden', open);
   }
 
   setLayoutChoice(layoutId) {
-    this.chosenLayout = LAYOUTS[layoutId] ? layoutId : 'easy-72';
+    // Validated against LAYOUT_IDS, not LAYOUTS: the surprise board has no entry in
+    // LAYOUTS because it is generated per game, and checking the wrong list silently
+    // fell back to the easy board every time she picked it.
+    this.chosenLayout = LAYOUT_IDS.includes(layoutId) ? layoutId : 'easy-72';
     for (const button of this.el.choices) {
       button.setAttribute('aria-pressed', String(button.dataset.layout === this.chosenLayout));
     }
@@ -160,6 +240,9 @@ export class Ui {
 
   /** One screen visible at a time; the in-game bar only during play. */
   showScreen(screen) {
+    // Any screen change closes the legend, so it can never be left hanging over a
+    // greeting or a win screen.
+    if (screen !== 'board') this.el.legend.classList.add('hidden');
     this.el.greeting.classList.toggle('hidden', screen !== 'greeting');
     this.el.won.classList.toggle('hidden', screen !== 'won');
     this.el.noMoves.classList.toggle('hidden', screen !== 'no-moves');
@@ -188,6 +271,18 @@ export class Ui {
   setResumeAvailable(available, description = '') {
     this.el.resume.classList.toggle('hidden', !available);
     if (available && description) this.el.resume.textContent = description;
+  }
+
+  /** A green tick on every board she has finished at least once. */
+  setCompletedBoards(completedByBoard = {}) {
+    for (const button of this.el.choices) {
+      const times = Number(completedByBoard[button.dataset.layout]) || 0;
+      const tick = button.querySelector('.choice-tick');
+      if (!tick) continue;
+      tick.classList.toggle('hidden', times === 0);
+      tick.textContent = times > 1 ? `✓${times}` : '✓';
+      button.classList.toggle('is-completed', times > 0);
+    }
   }
 
   setBoardsCompleted(count) {

@@ -110,6 +110,23 @@ export const TIME = {
   maxFrameDelta: 0.1,
 };
 
+export const SURPRISE = {
+  id: 'surprise-144',
+  // Same size as the classic boards, so the surprise is the shape and nothing else.
+  tiles: 144,
+  // The grid the shape is drawn on. Matches the widest hand-authored board, so a
+  // surprise shape can never be framed smaller than the turtle.
+  // 16 × 8, not 18 × 9: the board is fitted to the screen, so a wider or deeper shape
+  // means smaller tiles. At 18 × 9 a surprise board measured 44 dp on a 10–11" tablet,
+  // below Android's 48 dp floor — the same trap the crab and spider fell into.
+  width: 16,
+  height: 8,
+  maxLayers: 5,
+  // Some silhouettes are too thin to hold 144 tiles; the generator tries another
+  // rather than padding one out into something that no longer looks like anything.
+  attempts: 40,
+};
+
 export const ASSISTS = {
   hints: 10,
   shuffles: 3,

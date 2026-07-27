@@ -2,7 +2,8 @@ import './style.css';
 import { Game } from './core/Game.js';
 import { LAYOUT_DEFAULT } from './core/Constants.js';
 import { LAYOUT_IDS } from './board/Layouts.js';
-import { loadTileAtlas } from './assets/TileSheet.js';
+import { atlasCell, loadTileAtlas } from './assets/TileSheet.js';
+import { ATLAS, FACES } from './core/Constants.js';
 import { Ui } from './ui/Ui.js';
 import { Events, eventBus } from './core/EventBus.js';
 import { gameState } from './core/GameState.js';
@@ -50,6 +51,12 @@ async function boot() {
   gameState.boardsCompleted = save.boardsCompleted;
 
   const ui = new Ui({ playerName: 'Dawn' });
+  ui.buildLegendArt(atlasCanvas, (face) => {
+    const index = FACES.indexOf(face);
+    if (index < 0) return null;
+    const at = atlasCell(index);
+    return { x: at.x, y: at.y, w: ATLAS.cellWidth, h: ATLAS.cellHeight };
+  });
   wireUi(game, ui, save, audio);
 
   if (straightToBoard) {
@@ -60,6 +67,7 @@ async function boot() {
     if (save.preferredLayout) ui.setLayoutChoice(save.preferredLayout);
     ui.setResumeAvailable(save.hasResumableBoard, resumeLabel(save));
     ui.setBoardsCompleted(save.boardsCompleted);
+    ui.setCompletedBoards(save.completedByBoard);
     ui.setMuted(save.muted);
     game.goHome();
     ui.showScreen(gameState.screen);
@@ -118,10 +126,11 @@ function wireUi(game, ui, save, audio) {
   }
 
   eventBus.on(Events.PAIR_MATCHED, () => ui.refreshHud());
-  eventBus.on(Events.BOARD_CLEARED, () => {
-    const completed = save.recordBoardCompleted();
+  eventBus.on(Events.BOARD_CLEARED, ({ layoutId: finished }) => {
+    const completed = save.recordBoardCompleted(finished);
     gameState.boardsCompleted = completed;
     ui.setBoardsCompleted(completed);
+    ui.setCompletedBoards(save.completedByBoard);
   });
   eventBus.on(Events.GAME_NO_MOVES, () => save.clearBoard());
 }

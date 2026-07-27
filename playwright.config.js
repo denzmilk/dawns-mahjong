@@ -4,7 +4,11 @@ export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.js',
   timeout: 60_000,
-  workers: 4,
+  // 2, not 4: headless Chromium falls back to software GL, and since the celebrations
+  // were doubled four workers all rasterising particle bursts starve each other — two
+  // tests failed on contention alone and passed immediately when run serially. This is
+  // harness cost; a real GPU is unaffected.
+  workers: 2,
   use: {
     baseURL: 'http://localhost:3100',
     // Dawn plays on a tablet in landscape, so that is the viewport every test

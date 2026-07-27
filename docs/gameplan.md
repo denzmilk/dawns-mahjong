@@ -37,9 +37,11 @@ Tiles that fail either test are dimmed and cannot be tapped at all — tapping o
 - Tap a matching free tile to clear the pair.
 - Tap a non-matching free tile: both tiles shake, flash, and deselect with a soft thud. No penalty, no counter, nothing lost.
 
-**Layouts (v1)**
-- **Easy (72 tiles)** — the default. Two copies of each of the 34 faces plus 4 Elvis tiles, on a roomy layout with big finger-sized tiles.
-- **Classic Turtle (144 tiles)** — the traditional pyramid, chosen from the main screen.
+**Boards** — eight, chosen from the front screen and labelled by tile count
+- **72 tiles (easy)** — the default. Two copies of each of the 34 faces plus 4 Elvis tiles, on a roomy layout with big finger-sized tiles.
+- **144 tiles** in six shapes: **turtle** (the traditional pyramid), **dragon**, **cat**, **fortress**, **crab**, **spider** — the shapes she is most likely to already know.
+- **144 tiles (surprise)** — a shape generated fresh every game: stars, rings, hearts, crosses, flowers, diamonds, butterflies, blobs. There is always another board.
+- A green tick marks every board she has finished.
 
 **Help**
 - **10 hints** per game. A hint pulses one playable pair.
@@ -83,7 +85,7 @@ Procedural Web Audio only — no audio files, nothing to load, works offline.
 This game is deliberately **not**:
 
 - **Timed or scored.** No clock, no points, no leaderboard, no stars. Tiles-remaining is the only number on screen.
-- **A menu system.** Two buttons on the front screen, five in-game (hint, shuffle, sound, new game, back). No settings tree, no tutorial to sit through, no pop-ups.
+- **A menu system.** Two buttons and a row of boards on the front screen; five in-game (help, mix, sound, how to play, menu). No settings tree, no tutorial to sit through. "How to play" is one tap, always available, and closes straight back to her game.
 - **Rotatable or zoomable.** Every gesture beyond a single tap is disabled — including pinch, drag, double-tap-to-zoom, and long-press — because every one of them is a way to break the view and not know how to fix it.
 - **Online.** No accounts, no sign-in, no network calls, no ads, no analytics. It works with the wifi off.
 - **Punishing.** A wrong tap costs nothing. A dead-end board is phrased as bad luck, not failure.

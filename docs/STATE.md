@@ -10,7 +10,11 @@
 
 development
 
-**All ten milestones are implemented. 76 specs green. The game is complete enough to give to Dawn.**
+**All eleven milestones are implemented. 83 specs green. The game is complete enough to give to Dawn.**
+
+Eight boards: 72-tile easy, six 144-tile shapes (turtle, dragon, cat, fortress, crab,
+spider), and a surprise board generated fresh every game. A "How to play" legend on the
+bar. Green ticks on finished boards. Celebrations doubled.
 
 Every milestone doc (01–10) is `in-progress` rather than `done` for one reason: each has
 playtest acceptance criteria that only Chris — and then Dawn — can close. Nothing is
@@ -30,6 +34,7 @@ blocked on code.
 | 08 | Elvis | green | faces recognisable at tile size; **Nan likes it** |
 | 09 | onto her tablet | green | installs and plays with the wifi off |
 | 10 | Pages deploy | green | opens on her tablet |
+| 11 | more boards, legend, surprise board | green | recognises a shape; finds "How to play"; doubled celebrations not overwhelming |
 
 ## Last action
 
@@ -42,6 +47,16 @@ Three things in one session.
 **Milestone 10** (pulled forward out of 09 at Chris's request): GitHub Actions deploy to Pages, gated on `npm run verify:build`, which serves `dist/` from a `/dawns-mahjong` subpath in a real browser and fails on console errors, 4xx, leaked absolute asset paths, a missing font, or an unrendered board. **Live and verified at https://denzmilk.github.io/dawns-mahjong/.**
 
 **Milestone 02**, red-then-green again (43 new specs → 63 total, all green). `BoardRules.js` (pure: precomputed adjacency index, freeness, matching with the Elvis group, available pairs), `BoardGenerator.js` (pure: boards built by *playing* them, so every board ships with a known clearing order; plus a reshuffle with the same guarantee), `Rng.js` (seedable, so any board is reproducible from `?seed=`), `InputSystem.js` (taps only — a drag isn't a tap, a long press isn't a tap, a second finger cancels), tap forgiveness for unambiguous near-misses, hints (10) and reshuffles (3), win and dead-end states, and a stopgap selection lift. Verified end to end: a full easy-72 board plays out in 70 taps to `won`, clean console, no reshuffles needed.
+
+## Decided on 2026-07-27 (second round)
+
+- **Any two Elvis tiles match** — confirmed, not changed. It is the classic flowers rule
+  with flowers and seasons merged into one group of eight, and the legend now says so in
+  her words.
+- **The install button is gone from the greeting.** Chris installs it once from the
+  browser menu; offline play and the home-screen icon come from the manifest and service
+  worker, not the button.
+- **Boards are named by tile count**, with the shape as a secondary hint.
 
 ## Next step
 

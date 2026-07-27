@@ -53,7 +53,7 @@ test('the camera never moves in response to input', async ({ page }) => {
   await gotoGame(page, { layout: 'easy-72' });
   const before = await snapshot(page);
 
-  const box = await page.locator('canvas').boundingBox();
+  const box = await page.locator('#game-container canvas').boundingBox();
   // A drag across the board and a wheel — everything that would orbit or zoom a
   // conventional 3D scene. Neither is a tap, so nothing at all should change.
   await page.mouse.move(box.x + 200, box.y + 200);

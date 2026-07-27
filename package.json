@@ -12,7 +12,8 @@
     "verify:build": "npm run build && node scripts/verify-build.mjs",
     "assets:sync": "node scripts/sync-assets.mjs",
     "measure:tiles": "node scripts/measure-tile-sheet.mjs",
-    "build:icons": "node scripts/build-icons.mjs"
+    "build:icons": "node scripts/build-icons.mjs",
+    "check:layouts": "node scripts/check-layouts.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

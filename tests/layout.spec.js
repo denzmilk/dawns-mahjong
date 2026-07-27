@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { LAYOUTS, layoutBounds } from '../src/board/Layouts.js';
+import { FIXED_LAYOUT_IDS, LAYOUTS, layoutBounds } from '../src/board/Layouts.js';
+import { generateShape } from '../src/board/ShapeGenerator.js';
+import { SURPRISE } from '../src/core/Constants.js';
+import { seededRng } from './helpers.mjs';
 import { gotoGame, snapshot } from './helpers.mjs';
 
 // Layouts are pure data on a half-tile lattice: a tile at (x, y) occupies
@@ -12,7 +15,37 @@ const rectsOverlap = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0
 test.describe('layout data', () => {
   test('layout tile counts', () => {
     expect(LAYOUTS['easy-72'].tiles).toHaveLength(72);
-    expect(LAYOUTS['turtle-144'].tiles).toHaveLength(144);
+    // Every other board is the traditional 144.
+    for (const id of FIXED_LAYOUT_IDS.filter((x) => x !== 'easy-72')) {
+      expect(LAYOUTS[id].tiles, `${id}`).toHaveLength(144);
+    }
+    // Seven fixed shapes plus the surprise board.
+    expect(FIXED_LAYOUT_IDS).toHaveLength(7);
+  });
+
+  test('the surprise board always produces a playable shape', () => {
+    const shapes = new Set();
+    for (let seed = 1; seed <= 60; seed++) {
+      const shape = generateShape(seededRng(seed));
+      expect(shape, `seed ${seed} produced no shape`).not.toBeNull();
+      shapes.add(shape.name);
+      expect(shape.tiles, `seed ${seed}`).toHaveLength(SURPRISE.tiles);
+
+      // Every tile above the base must rest on one below it, or the board contains a
+      // tile that can never be freed.
+      const cells = new Set(shape.tiles.map((t) => `${t.x},${t.y},${t.layer}`));
+      expect(cells.size, `seed ${seed} has duplicate cells`).toBe(shape.tiles.length);
+      for (const t of shape.tiles) {
+        if (t.layer === 0) continue;
+        expect(cells.has(`${t.x},${t.y},${t.layer - 1}`), `seed ${seed}: floating tile`).toBe(true);
+      }
+
+      // And it has to fit the board it is drawn on.
+      expect(Math.max(...shape.tiles.map((t) => t.x)) / 2 + 1).toBeLessThanOrEqual(SURPRISE.width);
+      expect(Math.max(...shape.tiles.map((t) => t.y)) / 2 + 1).toBeLessThanOrEqual(SURPRISE.height);
+    }
+    // Infinite replayability is the point, so it must not keep dealing one shape.
+    expect(shapes.size).toBeGreaterThan(3);
   });
 
   test('layouts are structurally valid', () => {
@@ -107,6 +140,24 @@ test.describe('layout on screen', () => {
       await gotoGame(page, { layout: 'easy-72', viewport });
       const smallest = smallestTile(await snapshot(page));
       expect(smallest, `easy-72 at ${viewport.label} (${viewport.width}dp)`).toBeGreaterThanOrEqual(64);
+    }
+  });
+
+  test('every 144-tile board stays above the 48dp platform floor', async ({ page }) => {
+    // All the big boards are in the same position as the turtle: they cannot reach
+    // 64 dp on a 10–11" tablet, which is what tap forgiveness exists for. The surprise
+    // board is included because it is generated, and a shape drawn too wide or too deep
+    // would quietly drop below the floor.
+    const boards = [...FIXED_LAYOUT_IDS.filter((x) => x !== 'easy-72'), SURPRISE.id];
+    for (const id of boards) {
+      await gotoGame(page, { layout: id, seed: 7, viewport: { width: 1024, height: 640 } });
+      const state = await snapshot(page);
+      expect(state.tiles, `${id} tile count`).toHaveLength(144);
+      expect(smallestTile(state), `${id} smallest tile`).toBeGreaterThanOrEqual(46);
+      const clipped = state.tiles.filter(
+        (t) => t.screen.x < 0 || t.screen.y < 0 || t.screen.x + t.screen.w > 1024 || t.screen.y + t.screen.h > 640
+      );
+      expect(clipped, `${id} clipped tiles`).toHaveLength(0);
     }
   });
 

@@ -11,6 +11,8 @@ class GameState {
   reset(layoutId = LAYOUT_DEFAULT) {
     this.screen = 'board'; // greeting | board | won | no-moves
     this.layoutId = layoutId;
+    /** Human-readable, and for the surprise board it names the shape she got. */
+    this.layoutName = '';
     this.seed = null;
     /**
      * One entry per tile: { id, x, y, layer, face, cleared }.

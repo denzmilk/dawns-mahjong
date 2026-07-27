@@ -121,8 +121,24 @@ export class SaveSystem {
     return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
   }
 
-  recordBoardCompleted() {
+  /** How many times she has finished each board, keyed by layout id. */
+  get completedByBoard() {
+    const raw = this.data.stats.completedByBoard;
+    return raw && typeof raw === 'object' ? raw : {};
+  }
+
+  completedCount(layoutId) {
+    const value = Number(this.completedByBoard[layoutId]);
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  }
+
+  recordBoardCompleted(layoutId = null) {
     this.data.stats.boardsCompleted = this.boardsCompleted + 1;
+    if (layoutId) {
+      const byBoard = { ...this.completedByBoard };
+      byBoard[layoutId] = this.completedCount(layoutId) + 1;
+      this.data.stats.completedByBoard = byBoard;
+    }
     this.data.board = null;
     this.write();
     return this.data.stats.boardsCompleted;

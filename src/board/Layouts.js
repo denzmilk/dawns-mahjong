@@ -1,3 +1,6 @@
+import { SURPRISE } from '../core/Constants.js';
+import { generateShape } from './ShapeGenerator.js';
+
 // Board shapes as pure data. No Three.js, no DOM — these are imported directly
 // by tests.
 //
@@ -77,7 +80,11 @@ export const LAYOUTS = {
   },
 };
 
-export const LAYOUT_IDS = Object.keys(LAYOUTS);
+/**
+ * Every board she can choose, in menu order. The surprise board is appended in
+ * Layouts' tail (below) so it always comes last.
+ */
+export const LAYOUT_IDS = [];
 
 /** Lattice-space extents of a layout, in half-tile units. */
 export function layoutBounds(layout) {
@@ -93,6 +100,260 @@ export function layoutBounds(layout) {
   };
 }
 
-export function getLayout(id) {
+export function getLayout(id, { rng = Math.random } = {}) {
+  // The surprise board has no fixed shape: it is generated per game, which is the
+  // whole point of it.
+  if (id === SURPRISE.id) {
+    const shape = generateShape(rng);
+    if (!shape) return null;
+    return {
+      id: SURPRISE.id,
+      name: `Surprise (${shape.name})`,
+      shape: shape.name,
+      tiles: withIds(shape.tiles),
+    };
+  }
   return LAYOUTS[id] || null;
 }
+
+// ---------------------------------------------------------------------------
+// The familiar six.
+//
+// Chris asked for the shapes Dawn is most likely to already know — the set from
+// Windows' Mahjong Titans (turtle, dragon, cat, fortress, crab, spider). These are
+// authored in that spirit and at the traditional 144 tiles each; they are not
+// pixel-exact copies of Microsoft's geometry.
+//
+// Each shape is drawn as ASCII masks, one per layer, because a layout is a picture
+// and picking it out of a list of coordinates is impossible. '#' is a tile.
+// Layers here are ALIGNED (no half-tile straddle, unlike the turtle), which makes
+// support trivially checkable: every '#' on a layer must have a '#' directly beneath
+// it. `npm run check:layouts` proves it, along with the 144-tile count.
+// ---------------------------------------------------------------------------
+
+function fromMasks(masks) {
+  const tiles = [];
+  masks.forEach((mask, layer) => {
+    mask.forEach((line, row) => {
+      [...line].forEach((cell, col) => {
+        if (cell === '#') tiles.push({ x: col * 2, y: row * 2, layer });
+      });
+    });
+  });
+  return tiles;
+}
+
+const DRAGON = [
+  [
+    '....########....',
+    '..############..',
+    '################',
+    '################',
+    '################',
+    '..############..',
+    '....########....',
+  ],
+  [
+    '................',
+    '................',
+    '...##########...',
+    '.##############.',
+    '...##########...',
+    '................',
+    '................',
+  ],
+  [
+    '................',
+    '................',
+    '................',
+    '.##############.',
+    '................',
+    '................',
+    '................',
+  ],
+  [
+    '................',
+    '................',
+    '................',
+    '......######....',
+    '................',
+    '................',
+    '................',
+  ],
+  [
+    '................',
+    '................',
+    '................',
+    '........##......',
+    '................',
+    '................',
+    '................',
+  ],
+];
+
+const CAT = [
+  [
+    '..##........##....',
+    '.####......####...',
+    '.##############...',
+    '.##############.##',
+    '.##############.##',
+    '..############....',
+    '...##########.....',
+  ],
+  [
+    '..................',
+    '..................',
+    '...##########.....',
+    '..############....',
+    '..############....',
+    '...##########.....',
+    '..................',
+  ],
+  [
+    '..................',
+    '..................',
+    '..................',
+    '....########......',
+    '....########......',
+    '..................',
+    '..................',
+  ],
+  [
+    '..................',
+    '..................',
+    '..................',
+    '..................',
+    '......####........',
+    '..................',
+    '..................',
+  ],
+];
+
+const FORTRESS = [
+  [
+    '##...######...##',
+    '##...######...##',
+    '################',
+    '################',
+    '################',
+    '##...######...##',
+    '##...######...##',
+  ],
+  [
+    '................',
+    '................',
+    '..############..',
+    '..############..',
+    '..############..',
+    '................',
+    '................',
+  ],
+  [
+    '................',
+    '................',
+    '................',
+    '....########....',
+    '................',
+    '................',
+    '................',
+  ],
+  [
+    '................',
+    '................',
+    '................',
+    '....########....',
+    '................',
+    '................',
+    '................',
+  ],
+  [
+    '................',
+    '................',
+    '................',
+    '......####......',
+    '................',
+    '................',
+    '................',
+  ],
+];
+
+const CRAB = [
+  [
+    '##..########..##',
+    '##..########..##',
+    '.##############.',
+    '..############..',
+    '.##############.',
+    '##..########..##',
+    '##..########..##',
+  ],
+  [
+    '................',
+    '................',
+    '...##########...',
+    '..############..',
+    '...##########...',
+    '................',
+    '................',
+  ],
+  [
+    '................',
+    '................',
+    '...##########...',
+    '..############..',
+    '.......##.......',
+    '................',
+    '................',
+  ],
+];
+
+const SPIDER = [
+  [
+    '##...........##',
+    '.##.#######.##.',
+    '..###########..',
+    '.#############.',
+    '.#############.',
+    '..###########..',
+    '.##.#######.##.',
+    '##...........##',
+  ],
+  [
+    '...............',
+    '....######.....',
+    '...########....',
+    '..##########...',
+    '..##########...',
+    '...########....',
+    '....######.....',
+    '...............',
+  ],
+  [
+    '...............',
+    '...............',
+    '...............',
+    '...########....',
+    '..##########...',
+    '...............',
+    '...............',
+    '...............',
+  ],
+];
+
+export const SHAPE_LAYOUTS = {
+  'dragon-144': { name: 'Dragon', masks: DRAGON },
+  'cat-144': { name: 'Cat', masks: CAT },
+  'fortress-144': { name: 'Fortress', masks: FORTRESS },
+  'crab-144': { name: 'Crab', masks: CRAB },
+  'spider-144': { name: 'Spider', masks: SPIDER },
+};
+
+for (const [id, shape] of Object.entries(SHAPE_LAYOUTS)) {
+  LAYOUTS[id] = { id, name: shape.name, tiles: withIds(fromMasks(shape.masks)), masks: shape.masks };
+}
+
+LAYOUT_IDS.push(...Object.keys(LAYOUTS), SURPRISE.id);
+
+/** Boards with a fixed shape — the ones the layout tests can assert against. */
+export const FIXED_LAYOUT_IDS = Object.keys(LAYOUTS);

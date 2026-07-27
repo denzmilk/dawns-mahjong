@@ -146,14 +146,19 @@ export class Game {
   }
 
   loadLayout(layoutId, { seed = null, animate = true } = {}) {
-    const layout = getLayout(layoutId);
+    const chosenSeed = seed ?? randomSeed();
+    // Two independent streams from the one seed: one shapes the board (the surprise
+    // board generates its silhouette here), one deals the faces. Sharing a single
+    // stream would make the shape and the deal interfere, so a seed would no longer
+    // reproduce a board once either changed.
+    const layout = getLayout(layoutId, { rng: mulberry32(chosenSeed) });
     if (!layout) throw new Error(`Unknown layout: ${layoutId}`);
 
-    const chosenSeed = seed ?? randomSeed();
-    const { tiles } = generateBoard(layout, mulberry32(chosenSeed));
+    const { tiles } = generateBoard(layout, mulberry32((chosenSeed ^ 0x9e3779b9) >>> 0));
 
     this.buildBoard(layout.id, tiles, { animate });
     gameState.seed = chosenSeed;
+    gameState.layoutName = layout.name;
     eventBus.emit(Events.BOARD_GENERATED, {
       layoutId: layout.id,
       seed: chosenSeed,
@@ -935,6 +940,7 @@ export class Game {
     return {
       screen: gameState.screen,
       layout: gameState.layoutId,
+      layoutName: gameState.layoutName,
       seed: gameState.seed,
       viewport: {
         w: window.innerWidth,

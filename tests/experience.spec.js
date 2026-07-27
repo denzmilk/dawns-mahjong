@@ -95,18 +95,25 @@ test.describe('reading the board', () => {
   test('unplayable tiles are visibly dimmer than playable ones', async ({ page }) => {
     await gotoGame(page, { layout: 'easy-72', seed: 1234 });
     const state = await snapshot(page);
-    const free = state.tiles.find((t) => t.free && t.layer === 1);
-    const blocked = state.tiles.find((t) => !t.free && t.layer === 0);
-    expect(free && blocked).toBeTruthy();
+
+    // Averaged over several tiles of each kind rather than one of each: any single
+    // tile can be sitting under a shadow or carrying a dark glyph, which says nothing
+    // about the shading. "Visibly dimmer" is a claim about the board, not one tile.
+    const pick = (wanted) => state.tiles.filter((t) => t.free === wanted && !t.cleared).slice(0, 8);
+    const freeTiles = pick(true);
+    const blockedTiles = pick(false);
+    expect(freeTiles.length, 'need playable tiles to sample').toBeGreaterThan(3);
+    expect(blockedTiles.length, 'need blocked tiles to sample').toBeGreaterThan(3);
 
     // Sampled off-centre, away from the printed glyphs.
-    const [freeColour, blockedColour] = await samplePoints(page, [
-      [Math.round(free.screen.cx - free.screen.w * 0.32), Math.round(free.screen.cy)],
-      [Math.round(blocked.screen.cx - blocked.screen.w * 0.32), Math.round(blocked.screen.cy)],
-    ]);
+    const point = (t) => [Math.round(t.screen.cx - t.screen.w * 0.32), Math.round(t.screen.cy)];
+    const colours = await samplePoints(page, [...freeTiles, ...blockedTiles].map(point));
+    const mean = (values) => values.reduce((a, b) => a + b, 0) / values.length;
+    const freeMean = mean(colours.slice(0, freeTiles.length).map(luminance));
+    const blockedMean = mean(colours.slice(freeTiles.length).map(luminance));
 
     // ADR-0002 constraint 2: "what can I tap?" must be answered by the render itself.
-    expect(luminance(blockedColour) / luminance(freeColour)).toBeLessThan(0.85);
+    expect(blockedMean / freeMean).toBeLessThan(0.85);
   });
 
   test('a selected tile lifts and gains a gold rim', async ({ page }) => {
@@ -232,7 +239,92 @@ test.describe('carrying on', () => {
   });
 });
 
+test.describe('boards and the legend', () => {
+  test('every board is offered, and picking one actually starts it', async ({ page }) => {
+    await gotoFront(page);
+    const buttons = page.locator('#board-buttons .choice-button');
+    // Seven fixed shapes plus the surprise board.
+    expect(await buttons.count()).toBe(8);
+
+    // The surprise board is the one that used to silently fall back to the easy board,
+    // because it has no entry in LAYOUTS — it is generated per game.
+    await page.click('.choice-button[data-layout="surprise-144"]');
+    await page.click('#btn-play');
+    await page.waitForFunction(() => window.render_game_to_text().screen === 'board');
+
+    const state = await snapshot(page);
+    expect(state.layout).toBe('surprise-144');
+    expect(state.counts.total).toBe(144);
+    expect(state.availablePairs).toBeGreaterThan(0);
+  });
+
+  test('the surprise board deals a different shape each time', async ({ page }) => {
+    await gotoFront(page);
+    const shapes = new Set();
+    for (let n = 0; n < 5; n++) {
+      await page.evaluate(() => window.__debug.newBoard({ layoutId: 'surprise-144' }));
+      shapes.add((await snapshot(page)).layoutName);
+    }
+    expect(shapes.size, `got ${[...shapes].join(', ')}`).toBeGreaterThan(1);
+  });
+
+  test('how to play opens over the game and closes back to it', async ({ page }) => {
+    await gotoFront(page);
+    await page.click('#btn-play');
+    await page.waitForFunction(() => window.render_game_to_text().screen === 'board');
+
+    await page.click('#btn-legend');
+    await expect(page.locator('#legend')).toBeVisible();
+    // The bar is hidden while it is up, so nothing behind it can be tapped by mistake.
+    await expect(page.locator('#hud')).toBeHidden();
+    // The tile pictures come from the real atlas, not from separate artwork.
+    expect(await page.locator('#legend-pair canvas').count()).toBe(2);
+    expect(await page.locator('#legend-elvis canvas').count()).toBe(2);
+    expect(await page.locator('#legend-free canvas.is-dim').count()).toBe(1);
+
+    await page.click('#btn-legend-close');
+    await expect(page.locator('#legend')).toBeHidden();
+    await expect(page.locator('#hud')).toBeVisible();
+    // Still the same game, not a new one.
+    expect((await snapshot(page)).screen).toBe('board');
+  });
+
+  test('a finished board earns a green tick that survives a reload', async ({ page }) => {
+    await gotoFront(page);
+    // Get onto the board first: taps are ignored on any other screen, so a fixture
+    // loaded behind the greeting would sit there untouchable.
+    await page.click('#btn-play');
+    await page.waitForFunction(() => window.render_game_to_text().screen === 'board');
+
+    // Two matching tiles: clearing them finishes the board.
+    let state = await page.evaluate(() =>
+      window.__debug.loadFixture(
+        [
+          { x: 0, y: 0, layer: 0, face: 'dragon-red' },
+          { x: 4, y: 0, layer: 0, face: 'dragon-red' },
+        ],
+        { layoutId: 'cat-144' }
+      )
+    );
+    for (const id of [0, 1]) state = await tapTile(page, state, id);
+    expect(state.screen).toBe('won');
+    expect(await page.evaluate(() => window.__debug.save.completedCount('cat-144'))).toBe(1);
+
+    await page.reload();
+    await page.waitForFunction(() => window.__ready === true);
+    await expect(page.locator('.choice-button[data-layout="cat-144"] .choice-tick')).toBeVisible();
+    await expect(page.locator('.choice-button[data-layout="spider-144"] .choice-tick')).toBeHidden();
+  });
+});
+
 test.describe('installable', () => {
+  test('the greeting no longer offers an install button', async ({ page }) => {
+    // Removed on Chris's instruction: he installs it once from the browser menu, so it
+    // is one less thing on the front screen. Offline play is unaffected.
+    await gotoFront(page);
+    expect(await page.locator('#btn-install').count()).toBe(0);
+  });
+
   test('the manifest and icons are served', async ({ page, request }) => {
     await gotoFront(page);
     const href = await page.getAttribute('link[rel="manifest"]', 'href');

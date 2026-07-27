@@ -52,6 +52,10 @@
           <span class="hud-icon" id="sound-icon">🔊</span>
           <span class="hud-label">Sound</span>
         </button>
+        <button id="btn-legend" class="hud-button" type="button">
+          <span class="hud-icon">❓</span>
+          <span class="hud-label">How to play</span>
+        </button>
         <button id="btn-home" class="hud-button" type="button">
           <span class="hud-icon">🏠</span>
           <span class="hud-label">Menu</span>
@@ -63,6 +67,34 @@
     <div id="stuck-nudge" class="hidden">
       No moves left, Dawn — press <b>Mix up</b> to shuffle the tiles.
     </div>
+
+    <!-- How to play. One way in, one way out — no nested menus (ADR-0002). -->
+    <section id="legend" class="screen hidden">
+      <div class="screen-inner legend-layout">
+        <h1>How to play</h1>
+        <div class="legend-rows">
+          <div class="legend-row">
+            <div class="legend-art" id="legend-pair"></div>
+            <p><b>Two of the same</b> — tap a tile, then tap another with the same picture. They clear away together.</p>
+          </div>
+          <div class="legend-row">
+            <div class="legend-art" id="legend-elvis"></div>
+            <p><b>Any two Elvis tiles go together</b>, even when the photographs are different. They are the easy ones.</p>
+          </div>
+          <div class="legend-row">
+            <div class="legend-art" id="legend-free"></div>
+            <p><b>Bright tiles can be played.</b> Dim tiles are stuck — something is on top of them, or they are hemmed in on both sides.</p>
+          </div>
+          <div class="legend-row">
+            <div class="legend-art legend-icons"><span>💡</span><span>🔀</span></div>
+            <p><b>Help me</b> points out a pair. <b>Mix up</b> shuffles the tiles when you run out of moves.</p>
+          </div>
+        </div>
+        <div class="button-stack">
+          <button id="btn-legend-close" class="big-button primary" type="button">Back to my game</button>
+        </div>
+      </div>
+    </section>
 
     <!-- Greeting -->
     <section id="greeting" class="screen">
@@ -81,14 +113,7 @@
           </div>
           <div class="board-choice">
             <span class="board-choice-label">Board</span>
-            <button class="choice-button" data-layout="easy-72" type="button">
-              <span class="choice-count">72</span>
-              <span class="choice-name">tiles</span>
-            </button>
-            <button class="choice-button" data-layout="turtle-144" type="button">
-              <span class="choice-count">144</span>
-              <span class="choice-name">tiles · turtle</span>
-            </button>
+            <div id="board-buttons"></div>
           </div>
           <p id="boards-done" class="boards-done hidden"></p>
         </div>

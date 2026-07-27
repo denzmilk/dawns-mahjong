@@ -377,9 +377,16 @@ body {
 .board-choice {
   margin-top: 2vh;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.8rem;
   flex-wrap: wrap;
+}
+
+/* Seven boards: a wrapping grid, so adding a shape needs no layout change. */
+#board-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 .board-choice-label {
@@ -420,6 +427,23 @@ body {
   opacity: 0.85;
 }
 
+/* A green tick on every board she has finished — the only progress this game keeps,
+   and the reason to come back to a shape she has not cracked yet. */
+.choice-tick {
+  font-size: max(17px, 1.8vh);
+  font-weight: 700;
+  color: #6fdc8c;
+  line-height: 1;
+}
+
+.choice-button.is-completed {
+  border-color: #6fdc8c;
+}
+
+.choice-button[aria-pressed='true'] .choice-tick {
+  color: #1c5c2e;
+}
+
 .choice-button[aria-pressed='true'] {
   color: var(--felt);
   background: var(--gold);
@@ -445,6 +469,72 @@ body {
   margin-top: 1.2vh;
   font-size: max(20px, 2vh);
   color: rgba(250, 246, 234, 0.7);
+}
+
+/* ---------- how to play ---------- */
+
+.legend-layout {
+  max-width: 1200px;
+  text-align: left;
+}
+
+.legend-layout h1 {
+  font-size: max(40px, 5.5vh);
+  text-align: center;
+  margin-bottom: 1.5vh;
+}
+
+.legend-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4vh;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+}
+
+.legend-row p {
+  font-size: max(22px, 2.4vh);
+  line-height: 1.35;
+  color: var(--cream);
+}
+
+.legend-row b {
+  color: var(--gold);
+}
+
+/* The little tile pictures are drawn from the real atlas, so the legend can never
+   drift from what the board actually looks like. */
+.legend-art {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  min-width: max(150px, 15vh);
+}
+
+.legend-art canvas {
+  width: max(58px, 6.4vh);
+  height: auto;
+  border-radius: 6px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.legend-art canvas.is-dim {
+  filter: brightness(0.48);
+}
+
+.legend-icons {
+  font-size: max(34px, 4vh);
+  gap: 0.8rem;
+}
+
+.legend-layout .button-stack {
+  margin-top: 2.4vh;
+  align-items: center;
 }
 
 /* Portrait tablets: stack the greeting rather than squeezing it. */
