@@ -73,6 +73,9 @@ async function boot() {
     ui.showScreen(gameState.screen);
   }
 
+  // Same reason: the very first board is dealt before the overlay exists.
+  requestAnimationFrame(() => game.updateSize());
+
   suppressUnwantedGestures();
   installTestHooks(game, ui, save, audio);
   watchForInstallPrompt(ui);
@@ -97,6 +100,12 @@ async function boot() {
  * place that turns them into game actions — so the DOM never reaches into the scene.
  */
 function wireUi(game, ui, save, audio) {
+  // The board is first fitted while the bar is still hidden, so nothing is reserved for
+  // it and tiles end up underneath the buttons. Refit once the bar is actually on screen.
+  eventBus.on(Events.SCREEN_CHANGED, ({ screen }) => {
+    if (screen === 'board') requestAnimationFrame(() => game.updateSize());
+  });
+
   eventBus.on(Events.UI_START_BOARD, ({ layoutId: chosen }) => {
     game.newBoard({ layoutId: chosen });
     game.setScreen('board');

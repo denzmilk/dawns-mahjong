@@ -168,6 +168,8 @@ body {
 #hud-buttons {
   display: flex;
   gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .hud-button {
@@ -535,6 +537,38 @@ body {
 .legend-layout .button-stack {
   margin-top: 2.4vh;
   align-items: center;
+}
+
+/* Portrait: she plays this way up (2026-07-27), so it gets the same care as landscape —
+   the bar goes to the bottom, out of the board's way, and the board gets the whole
+   height above it. */
+@media (orientation: portrait) {
+  #hud {
+    top: auto;
+    bottom: var(--frame-thickness);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  #tiles-left {
+    text-align: center;
+  }
+
+  #hud-buttons {
+    justify-content: center;
+  }
+
+  .hud-button {
+    flex: 1 1 0;
+    max-width: 22vw;
+    padding: 0.35rem 0.3rem;
+  }
+
+  #stuck-nudge {
+    bottom: auto;
+    top: calc(var(--frame-thickness) + 1rem);
+  }
 }
 
 /* Portrait tablets: stack the greeting rather than squeezing it. */

@@ -100,7 +100,43 @@ export function layoutBounds(layout) {
   };
 }
 
-export function getLayout(id, { rng = Math.random } = {}) {
+/**
+ * Turns a board on its side. Dawn plays in PORTRAIT (2026-07-27), and every board here is
+ * wide — a 12-column board fitted to a 600 dp-wide screen gives 45 dp tiles. Swapping the
+ * lattice axes makes a wide board a tall one, which on her screen is the difference
+ * between 45 dp and ~85 dp per tile.
+ *
+ * Only the coordinates swap: tile artwork stays upright, and the free-tile rule still
+ * reads along the board's x axis — so a turned board plays a little differently (you work
+ * in from the short sides), but it is still a legal board and still guaranteed solvable,
+ * because faces are dealt by playing it.
+ */
+/** Swaps the lattice axes: a wide board becomes a tall one. Artwork stays upright. */
+export function transposeTiles(tiles) {
+  return tiles.map((t) => ({ ...t, x: t.y, y: t.x }));
+}
+
+export function bestOrientation(tiles, viewportAspect, tileAspect) {
+  // Turn the board only if doing so brings its shape CLOSER to the screen's shape — the
+  // board is fitted to the screen, so the closer the two aspects, the less space is
+  // wasted and the bigger the tiles. Compared in log space so "twice as wide" and "half
+  // as wide" count as equally wrong.
+  //
+  // An earlier hand-rolled score got this backwards and turned boards in landscape too,
+  // halving tile size there while looking fine in portrait.
+  const span = (axis) => Math.max(...tiles.map((t) => t[axis])) + 2 - Math.min(...tiles.map((t) => t[axis]));
+  const cols = span('x') / 2;
+  const rows = span('y') / 2;
+
+  const mismatch = (wide, deep) => Math.abs(Math.log(wide / (deep * tileAspect) / viewportAspect));
+  return mismatch(rows, cols) < mismatch(cols, rows) ? 'turned' : 'as-authored';
+}
+
+export function getLayout(id, { rng = Math.random, portrait = false, viewportAspect = null, tileAspect = 1.32 } = {}) {
+  const shouldTurn = (tiles) => {
+    if (viewportAspect === null) return portrait;
+    return bestOrientation(tiles, viewportAspect, tileAspect) === 'turned';
+  };
   // The surprise board has no fixed shape: it is generated per game, which is the
   // whole point of it.
   if (id === SURPRISE.id) {
@@ -110,10 +146,13 @@ export function getLayout(id, { rng = Math.random } = {}) {
       id: SURPRISE.id,
       name: `Surprise (${shape.name})`,
       shape: shape.name,
-      tiles: withIds(shape.tiles),
+      tiles: withIds(shouldTurn(shape.tiles) ? transposeTiles(shape.tiles) : shape.tiles),
     };
   }
-  return LAYOUTS[id] || null;
+  const layout = LAYOUTS[id];
+  if (!layout) return null;
+  if (!shouldTurn(layout.tiles)) return layout;
+  return { ...layout, tiles: withIds(transposeTiles(layout.tiles)) };
 }
 
 // ---------------------------------------------------------------------------
@@ -341,6 +380,87 @@ const SPIDER = [
   ],
 ];
 
+// ---------------------------------------------------------------------------
+// The small boards.
+//
+// Dawn played it and said the tiles were too small (2026-07-27). Tile size is set by how
+// many columns the board is wide — the board is fitted to the screen, so 12 columns on
+// her ~960 dp tablet is 68 dp per tile and no amount of tuning changes that. Fewer
+// columns is the only real lever, so these three trade board size for tile size:
+//
+//   6 columns → ~135 dp per tile   (24 tiles, a couple of minutes)
+//   8 columns → ~100 dp            (36 tiles, the new default)
+//  10 columns → ~82 dp             (48 tiles)
+//
+// A 24-tile board also draws on fewer distinct faces, which makes spotting a pair easier
+// as well as tapping it.
+// ---------------------------------------------------------------------------
+
+const QUICK = [
+  [
+    '######',
+    '######',
+    '######',
+  ],
+  [
+    '......',
+    '.####.',
+    '......',
+  ],
+  [
+    '......',
+    '..##..',
+    '......',
+  ],
+];
+
+const GARDEN = [
+  [
+    '######',
+    '######',
+    '######',
+    '######',
+    '######',
+  ],
+  [
+    '......',
+    '......',
+    '.####.',
+    '......',
+    '......',
+  ],
+  [
+    '......',
+    '......',
+    '..##..',
+    '......',
+    '......',
+  ],
+];
+
+const STEPS = [
+  [
+    '##########',
+    '##########',
+    '##########',
+  ],
+  [
+    '..........',
+    '.########.',
+    '..........',
+  ],
+  [
+    '..........',
+    '..######..',
+    '..........',
+  ],
+  [
+    '..........',
+    '...####...',
+    '..........',
+  ],
+];
+
 // Sized for Dawn's actual tablet. A Tab A11+ presents about 960 dp across, and 12
 // columns is the widest board that still clears the 64 dp touch floor there — the
 // 144-tile boards are 16 columns and land at 44 dp, which is below Android's own
@@ -372,7 +492,11 @@ const PAGODA = [
   ],
 ];
 
+// Menu order: smallest board (biggest tiles) first, because that is what she asked for.
 export const SHAPE_LAYOUTS = {
+  'quick-24': { name: 'Quick', masks: QUICK },
+  'garden-36': { name: 'Garden', masks: GARDEN },
+  'steps-48': { name: 'Steps', masks: STEPS },
   'pagoda-96': { name: 'Pagoda', masks: PAGODA },
   'dragon-144': { name: 'Dragon', masks: DRAGON },
   'cat-144': { name: 'Cat', masks: CAT },

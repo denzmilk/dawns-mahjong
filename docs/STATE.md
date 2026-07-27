@@ -59,6 +59,26 @@ Three things in one session.
   worker, not the button.
 - **Boards are named by tile count**, with the shape as a secondary hint.
 
+## She plays in portrait, and wanted bigger tiles (2026-07-28)
+
+Both came from Dawn actually playing it, and both changed real decisions.
+
+**Bigger tiles → smaller boards.** Tile size is set by a board's column count, so three
+small boards were added — **24 (quick)**, **36 (garden, now the default)**, **48 (steps)**
+— and the surprise board dropped to 48 tiles on a narrower grid. Upright on her tablet the
+default now gives **94 dp (~15 mm)** tiles, against 51 dp for the old 72-tile default.
+
+**Portrait, not landscape.** The manifest no longer locks orientation; boards now turn to
+whichever orientation fits the screen better (lattice axes swap, artwork stays upright);
+the bar moves to the bottom and wraps; the default board is squarer. Milestone 11 has the
+full table of measurements and the three bugs this surfaced — including board bounds being
+measured mid-entrance-animation, which halved tile size on any refit during a deal.
+
+**Known, backlogged:** a few tiles can sit under the bar's buttons on some board and
+orientation combinations. Three fixes were tried and each cost 30–60% of tile size;
+the real fix (reserve the strip *and* shift the look-at target together) is in
+`docs/backlog.md`. *Mix up* frees a stranded tile meanwhile.
+
 ## Her tablet is a Galaxy Tab A11+
 
 Named on 2026-07-27, and it changed real decisions — dp, not inches, is what the touch

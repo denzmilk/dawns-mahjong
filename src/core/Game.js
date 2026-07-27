@@ -151,7 +151,14 @@ export class Game {
     // board generates its silhouette here), one deals the faces. Sharing a single
     // stream would make the shape and the deal interfere, so a seed would no longer
     // reproduce a board once either changed.
-    const layout = getLayout(layoutId, { rng: mulberry32(chosenSeed) });
+    // Which way up the board is dealt is decided here, once, from the screen shape. A
+    // rotation mid-game deliberately does NOT re-deal: it would replace the board she is
+    // playing with a different one.
+    const layout = getLayout(layoutId, {
+      rng: mulberry32(chosenSeed),
+      viewportAspect: window.innerWidth / window.innerHeight,
+      tileAspect: TILE.depth / TILE.width,
+    });
     if (!layout) throw new Error(`Unknown layout: ${layoutId}`);
 
     const { tiles } = generateBoard(layout, mulberry32((chosenSeed ^ 0x9e3779b9) >>> 0));
@@ -760,10 +767,24 @@ export class Game {
     this.setScreen('greeting');
   }
 
-  /** World-space bounds of the tiles, padded by the felt margin. */
+  /**
+   * World-space bounds of the tiles at REST, padded by the felt margin.
+   *
+   * Resting positions, not current ones: during the entrance animation the tiles are up
+   * in the air and out to the sides, and measuring them there inflates the board enormously
+   * — a refit mid-entrance framed for that phantom board and cut tile size by half.
+   */
   boardBounds() {
     const bounds = new THREE.Box3();
-    for (const mesh of this.tileMeshes) bounds.expandByObject(mesh);
+    const halfW = (TILE.width - TILE.gap) / 2;
+    const halfD = (TILE.depth - TILE.gap) / 2;
+    for (const mesh of this.tileMeshes) {
+      const home = mesh.userData.entrance ? mesh.userData.entrance.target : mesh.position;
+      bounds.expandByPoint(new THREE.Vector3(home.x - halfW, TABLE.y, home.z - halfD));
+      bounds.expandByPoint(
+        new THREE.Vector3(home.x + halfW, home.y + TILE.thickness / 2, home.z + halfD)
+      );
+    }
     bounds.expandByVector(new THREE.Vector3(TABLE.padding, 0, TABLE.padding));
     return bounds;
   }
@@ -773,7 +794,7 @@ export class Game {
    * against these rather than a bounding box stops the camera reserving space for
    * box corners that hold no tile — worth about 4% of tile size on a stacked board.
    */
-  framingPoints() {
+  framingPoints(clearance = 0) {
     const halfW = (TILE.width - TILE.gap) / 2;
     const halfD = (TILE.depth - TILE.gap) / 2;
     const points = [];
@@ -793,6 +814,17 @@ export class Game {
         points.push(new THREE.Vector3(x, TABLE.y, z));
       }
     }
+
+    // Reserve table for the bar on whichever side it sits, so no tile ends up under a
+    // button. In world units, at table level, so it costs nothing in height.
+    const barAtBottom = hudIsAtBottom();
+    if (clearance > 0 && barAtBottom !== null) {
+      const z = barAtBottom ? bounds.max.z + clearance : bounds.min.z - clearance;
+      for (const x of [bounds.min.x, bounds.max.x]) {
+        points.push(new THREE.Vector3(x, TABLE.y, z));
+      }
+    }
+
     return points;
   }
 
@@ -801,12 +833,14 @@ export class Game {
     const height = window.innerHeight;
     this.renderer.setSize(width, height, true);
     const bounds = this.boardBounds();
-    this.cameraSystem.frame(
-      this.framingPoints(),
-      bounds.getCenter(new THREE.Vector3()),
-      width,
-      height
-    );
+    const centre = bounds.getCenter(new THREE.Vector3());
+
+    // Note: no allowance is made for the bar here. Reserving table on the bar's side
+    // while the camera still centres on the board costs DOUBLE the reservation (the
+    // frustum has to grow symmetrically), which cost more than half the tile size when
+    // tried. Doing it properly means reserving and shifting the look-at target together
+    // — see docs/backlog.md. A few tiles can sit under the bar's buttons until then.
+    this.cameraSystem.frame(this.framingPoints(), centre, width, height);
     this.fitShadowCamera();
     this.invalidateShadows();
   }
@@ -1023,6 +1057,27 @@ export class Game {
 }
 
 const round = (n) => Math.round(n * 100) / 100;
+
+/**
+ * Which side of the screen the bar is on: true for the bottom (portrait), false for the
+ * top (landscape), null when it isn't showing. Read from the DOM rather than assumed,
+ * because a CSS media query is what moves it.
+ */
+/** How tall the in-game bar is on screen, including a small gap. 0 when it isn't up. */
+function measureHudHeight() {
+  const hud = document.getElementById('hud');
+  if (!hud || hud.classList.contains('hidden')) return 0;
+  const box = hud.getBoundingClientRect();
+  return box.height ? box.height + 12 : 0;
+}
+
+function hudIsAtBottom() {
+  const hud = document.getElementById('hud');
+  if (!hud || hud.classList.contains('hidden')) return null;
+  const box = hud.getBoundingClientRect();
+  if (!box.height) return null;
+  return box.top > window.innerHeight / 2;
+}
 
 /** Soft radial glow for the pool of light under a selected tile. */
 function glowTexture() {

@@ -154,10 +154,10 @@ test.describe('tap forgiveness', () => {
 
 test.describe('end states', () => {
   test('plays a full board to completion by tapping', async ({ page }) => {
-    // 74 taps, each with a celebration rendering behind it. Headless Chromium is on
-    // software GL where a frame costs ~100 ms, so the whole play-through needs more
-    // than the default minute — this is harness cost, not the game being slow.
-    test.setTimeout(180_000);
+    // A whole board cleared by tapping, with a celebration rendering behind every pair.
+    // Headless Chromium is on software GL where a frame costs ~100 ms: ~110 s alone, and
+    // longer sharing a machine with the other worker. Harness cost, not the game.
+    test.setTimeout(360_000);
     await gotoGame(page, { layout: 'easy-72', seed: 29 });
     let state = await snapshot(page);
 

@@ -197,25 +197,28 @@ test.describe('carrying on', () => {
     await page.click('#btn-play');
     await page.waitForFunction(() => window.render_game_to_text().screen === 'board');
 
-    // Clear two pairs.
-    for (let n = 0; n < 2; n++) {
+    // Clear two pairs, checking each one actually went rather than assuming the taps
+    // landed — a celebration is playing over the board while this runs.
+    const before = (await snapshot(page)).counts.total;
+    for (let n = 0; n < 6 && (await snapshot(page)).counts.cleared < 4; n++) {
       const hint = await page.evaluate(() => window.__debug.hint());
+      if (!hint) break;
       let state = await snapshot(page);
       for (const id of hint.pair) state = await tapTile(page, state, id);
     }
     const remaining = (await snapshot(page)).counts.remaining;
-    expect(remaining).toBe(68);
+    expect(remaining).toBe(before - 4);
 
     // Close the tablet and come back.
     await page.reload();
     await page.waitForFunction(() => window.__ready === true);
     await expect(page.locator('#btn-resume')).toBeVisible();
-    expect(await page.textContent('#btn-resume')).toContain('68');
+    expect(await page.textContent('#btn-resume')).toContain(String(remaining));
 
     await page.click('#btn-resume');
     await page.waitForFunction(() => window.render_game_to_text().screen === 'board');
     const resumed = await snapshot(page);
-    expect(resumed.counts.remaining).toBe(68);
+    expect(resumed.counts.remaining).toBe(remaining);
     expect(resumed.counts.cleared).toBe(4);
   });
 
@@ -243,8 +246,8 @@ test.describe('boards and the legend', () => {
   test('every board is offered, and picking one actually starts it', async ({ page }) => {
     await gotoFront(page);
     const buttons = page.locator('#board-buttons .choice-button');
-    // Eight fixed boards plus the surprise board.
-    expect(await buttons.count()).toBe(9);
+    // Eleven fixed boards plus the surprise board.
+    expect(await buttons.count()).toBe(12);
 
     // The surprise board is the one that used to silently fall back to the easy board,
     // because it has no entry in LAYOUTS — it is generated per game.
@@ -254,7 +257,7 @@ test.describe('boards and the legend', () => {
 
     const state = await snapshot(page);
     expect(state.layout).toBe('surprise-144');
-    expect(state.counts.total).toBe(144);
+    expect(state.counts.total).toBe(48);
     expect(state.availablePairs).toBeGreaterThan(0);
   });
 

@@ -16,6 +16,9 @@ test.describe('layout data', () => {
   // Board sizes are chosen for what her tablet can show at a tappable size, not for
   // tradition alone — see the note on dp in 'layout on screen' below.
   const EXPECTED_SIZES = {
+    'quick-24': 24,
+    'garden-36': 36,
+    'steps-48': 48,
     'easy-72': 72,
     'pagoda-96': 96,
     'turtle-144': 144,
@@ -133,30 +136,53 @@ test.describe('layout on screen', () => {
   // are what real tablets actually present: a 10.9" Tab A9+ is 1920×1200 physical
   // but only ~1024×640 dp in landscape. Physical resolution is not the constraint;
   // dp is, because a finger is a fixed size.
-  // Dawn's tablet is a Galaxy Tab A11+. An ~11" 1920×1200 panel presents roughly
-  // 960 × 600 dp at Android's default display size, so that is the size that actually
-  // matters; the rest cover a smaller display-size setting and a larger tablet.
-  const HER_TABLET = { width: 960, height: 600, label: 'Tab A11+ at default display size' };
+  // Dawn's tablet is a Galaxy Tab A11+, and she plays it UPRIGHT (2026-07-27). An ~11"
+  // 1920×1200 panel presents roughly 960 × 600 dp at Android's default display size, so
+  // held in portrait that is 600 × 960 — and portrait is what has to be right first.
+  const HER_TABLET = { width: 600, height: 960, label: 'Tab A11+ held upright' };
+  const HER_TABLET_LANDSCAPE = { width: 960, height: 600, label: 'Tab A11+ on its side' };
   const TABLET_VIEWPORTS = [
     HER_TABLET,
-    { width: 1097, height: 686, label: 'Tab A11+, smaller display size' },
+    HER_TABLET_LANDSCAPE,
+    { width: 686, height: 1097, label: 'smaller display size, upright' },
     { width: 1280, height: 800, label: 'test default' },
-    { width: 1600, height: 1000, label: '12"+ class' },
   ];
 
   const smallestTile = (state) =>
     state.tiles.reduce((min, t) => Math.min(min, t.screen.w, t.screen.h), Infinity);
 
-  test('the everyday boards meet the 64dp touch minimum on her tablet', async ({ page }) => {
+  test('the default board gives her big tiles the way she holds the tablet', async ({ page }) => {
+    // Dawn said the tiles were too small, so the default has to be one of the roomiest
+    // boards — measured upright, because that is how she plays.
+    await gotoGame(page, { viewport: HER_TABLET });
+    const state = await snapshot(page);
+    expect(state.layout).toBe('garden-36');
+    expect(smallestTile(state)).toBeGreaterThanOrEqual(85);
+  });
+
+  test('the two small boards clear the 64dp minimum however she holds it', async ({ page }) => {
     // ADR-0002 constraint 4: tile size derives from the touch-target minimum, never the
-    // other way round. These are the two boards that must hold everywhere, because they
-    // are the ones sized to fit her screen — both are 12 columns wide.
-    for (const layout of ['easy-72', 'pagoda-96']) {
+    // other way round. These two are the everyday boards, so they have to hold in both
+    // orientations and at either display size.
+    for (const layout of ['quick-24', 'garden-36']) {
       for (const viewport of TABLET_VIEWPORTS) {
         await gotoGame(page, { layout, viewport });
         const smallest = smallestTile(await snapshot(page));
-        expect(smallest, `${layout} at ${viewport.label} (${viewport.width}dp)`).toBeGreaterThanOrEqual(64);
+        expect(smallest, `${layout} at ${viewport.label}`).toBeGreaterThanOrEqual(64);
       }
+    }
+  });
+
+  test('the middle boards clear 64dp on its side, and the platform floor upright', async ({ page }) => {
+    // Held upright there is simply less width to share out, so the 48-, 72- and 96-tile
+    // boards drop to 50–60 dp. Recorded rather than hidden: they stay above Android's
+    // 48 dp floor, and the two small boards are what she is steered towards.
+    for (const layout of ['steps-48', 'easy-72', 'pagoda-96']) {
+      await gotoGame(page, { layout, viewport: HER_TABLET_LANDSCAPE });
+      expect(smallestTile(await snapshot(page)), `${layout} on its side`).toBeGreaterThanOrEqual(64);
+
+      await gotoGame(page, { layout, viewport: HER_TABLET });
+      expect(smallestTile(await snapshot(page)), `${layout} upright`).toBeGreaterThanOrEqual(48);
     }
   });
 
@@ -167,12 +193,13 @@ test.describe('layout on screen', () => {
     // boards are the everyday ones, why tap forgiveness exists, and why a bigger
     // Android display-size setting is worth knowing about. This test's job is to catch
     // it getting *worse*, and to catch clipping.
-    const boards = [...FIXED_LAYOUT_IDS.filter((id) => LAYOUTS[id].tiles.length === 144), SURPRISE.id];
+    const boards = FIXED_LAYOUT_IDS.filter((id) => LAYOUTS[id].tiles.length === 144);
     for (const id of boards) {
       await gotoGame(page, { layout: id, seed: 7, viewport: HER_TABLET });
       const state = await snapshot(page);
       expect(state.counts.total, `${id} tile count`).toBe(144);
-      expect(smallestTile(state), `${id} smallest tile`).toBeGreaterThanOrEqual(43);
+      // Upright they are tighter still — 16 columns across 600 dp. Opt-in boards.
+      expect(smallestTile(state), `${id} smallest tile`).toBeGreaterThanOrEqual(30);
       const clipped = state.tiles.filter(
         (t) =>
           t.screen.x < 0 ||
@@ -182,6 +209,13 @@ test.describe('layout on screen', () => {
       );
       expect(clipped, `${id} clipped tiles`).toHaveLength(0);
     }
+  });
+
+  test('the surprise board is sized for her screen too', async ({ page }) => {
+    await gotoGame(page, { layout: SURPRISE.id, seed: 7, viewport: HER_TABLET });
+    const state = await snapshot(page);
+    expect(state.counts.total).toBe(SURPRISE.tiles);
+    expect(smallestTile(state)).toBeGreaterThanOrEqual(48);
   });
 
   test('turtle-144 stays above the 48dp platform floor, and clears 64 on a large screen', async ({

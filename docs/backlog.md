@@ -43,6 +43,11 @@ When an entry is **rejected**, wrap the title in `~~strikethrough~~` and add a o
   - Rough size: S · Rough value: L
   - Notes: Promoted the same day — Chris chose "keep the turtle, add tap forgiveness" over hiding or dropping it, which makes this load-bearing rather than polish. Picking is an exact raycast today; the margin picks the nearest free tile within ~12 dp, and only when exactly one candidate qualifies.
 
+- [ ] **Keep tiles out from under the bar's buttons** — a few tiles can sit beneath the in-game buttons on some board and orientation combinations, where they cannot be tapped.
+  - Source: 2026-07-27, portrait support
+  - Rough size: M · Rough value: L
+  - Notes: Three approaches were tried and all cost more tile size than the problem is worth: narrowing the vertical field of view to the free strip (halved tile size), a fixed world-unit reservation (3.6 units is over half of a 6-column board), and a measured reservation (still doubled, because reserving on one side while the camera centres on the board forces the frustum to grow symmetrically). **The fix is to reserve the strip AND shift the look-at target by half of it in the same pass**, so the growth is one-sided — needs care because the fit currently runs before the target is final. Until then the worst case is a couple of unreachable tiles, and *Mix up* frees them.
+
 ## Polish & juice
 
 - [ ] **Board-clear finale escalation** — every Nth match escalates the celebration, and the final pair always gets the biggest one.

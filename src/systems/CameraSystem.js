@@ -27,8 +27,7 @@ export class CameraSystem {
    * board, which is the difference between clearing the 64 dp touch floor and not.
    */
   frame(points, centre, width, height) {
-    const aspect = width / height;
-    this.camera.aspect = aspect;
+    this.camera.aspect = width / height;
     this.target.copy(centre);
 
     this.camera.position.copy(this.target).addScaledVector(this.direction, 1);
@@ -36,7 +35,7 @@ export class CameraSystem {
     this.camera.updateMatrixWorld(true);
 
     const tanV = Math.tan(THREE.MathUtils.degToRad(CAMERA.fov) / 2);
-    const tanH = tanV * aspect;
+    const tanH = tanV * this.camera.aspect;
     const inverse = new THREE.Matrix4().copy(this.camera.matrixWorld).invert();
     const corner = new THREE.Vector3();
 

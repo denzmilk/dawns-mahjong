@@ -96,6 +96,53 @@ The 144-tile boards remain below the platform floor at 45–50 dp (roughly 7–8
 recorded rather than smoothed over: they are opt-in, tap forgiveness covers near-misses,
 and a larger Android display-size setting buys her another ~15% if she wants it.
 
+## She plays in portrait, and the tiles were too small (2026-07-28)
+
+Two findings from Dawn actually using it, in the order they landed:
+
+**"The tiles are too small."** Tile size is set by how many columns wide a board is,
+because the board is fitted to the screen. So three small boards were added and the
+default moved down to the smallest sensible one:
+
+| Board | columns | upright | on its side |
+|---|---|---|---|
+| **24 tiles** (quick) | 6 | **98 dp** ≈ 15 mm | 113 dp |
+| **36 tiles** (garden, **the default**) | 6 | **94 dp** ≈ 15 mm | 72 dp |
+| 48 tiles (steps) | 10 | 60 dp | 83 dp |
+| 72 tiles (easy) | 12 | 51 dp | 68 dp |
+| 96 tiles (pagoda) | 12 | 50 dp | 68 dp |
+| 144 tiles (six shapes) | 15–17 | 31–41 dp | 45–50 dp |
+| surprise | 12 | 62 dp | 62 dp |
+
+**"She plays in portrait, not landscape."** That changed more than a media query:
+
+- **The manifest no longer locks orientation** (it said `landscape`, which would have
+  fought her in the installed app).
+- **Boards turn to face the screen.** A board is dealt in whichever orientation puts its
+  shape closer to the screen's shape — compared in log space, so "twice as wide" and
+  "half as wide" count as equally wrong. Only the lattice axes swap, so artwork stays
+  upright. Worth ~15 dp per tile in portrait.
+- **The bar moves to the bottom in portrait** and its buttons wrap, so a 600 dp-wide
+  screen doesn't overflow.
+- The **default board is squarer** (6 × 5 rather than 8 × 3), because portrait has height
+  to spare and width to save.
+
+Three bugs came out of this, all found by measuring rather than looking:
+
+1. **The orientation heuristic was backwards** at first and turned boards in landscape
+   too, halving tile size there while looking fine in portrait.
+2. **Board bounds were measured during the entrance animation**, when tiles are up in the
+   air and out to the sides. Any refit mid-entrance framed that phantom board and cut
+   tile size by half. Bounds now use resting positions — this would have bitten on any
+   resize during a deal.
+3. **Reserving screen space for the bar cost more than it saved.** Three attempts
+   (narrowing the field of view, a fixed world reservation, a measured one) each cost
+   30–60% of tile size, because reserving on one side while the camera still centres on
+   the board forces the frustum to grow symmetrically. Reverted, and backlogged with the
+   actual fix: reserve *and* shift the look-at target in the same pass. Until then a few
+   tiles can sit under the bar's buttons on some board and orientation combinations —
+   *Mix up* frees them.
+
 ## Notes
 
 - **Both new-shape bugs were size bugs, and both were caught by measurement:** the crab

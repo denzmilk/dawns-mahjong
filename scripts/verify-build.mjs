@@ -114,12 +114,17 @@ server.close();
 const failures = [];
 if (problems.length) failures.push(`console/network problems:\n    ${problems.join('\n    ')}`);
 if (leaked.length) failures.push(`assets requested outside ${SUBPATH}: ${leaked.join(', ')}`);
-if (state.counts.total !== 72) failures.push(`expected 72 tiles, got ${state.counts.total}`);
+// Whatever the default board is, it must be dealt in full and playable. Not a hard-coded
+// count: the default board size is a product decision that has already changed twice.
+if (state.counts.total < 24 || state.counts.total !== state.counts.remaining) {
+  failures.push(`default board dealt ${state.counts.total} tiles, ${state.counts.remaining} left`);
+}
+if (!state.availablePairs) failures.push('default board opened with no legal move');
 if (!fontLoaded) failures.push('Atkinson Hyperlegible did not load');
 
 console.log(`Served ${DIST}/ at ${SUBPATH}/ — ${requested.length} requests`);
 for (const url of requested) console.log(`    ${url}`);
-console.log(`  tiles rendered: ${state.counts.total}`);
+console.log(`  board dealt:    ${state.layout}, ${state.counts.total} tiles, ${state.availablePairs} pairs`);
 console.log(`  font loaded:    ${fontLoaded}`);
 
 if (failures.length) {

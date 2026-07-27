@@ -2,7 +2,9 @@
 // wrong" bugs trace back to a drifted constant, and they are only findable if
 // there is exactly one place to look.
 
-export const LAYOUT_DEFAULT = 'easy-72';
+// The 36-tile board: ~100 dp per tile on her tablet. Dawn found 68 dp too small, and the
+// default is what she gets if she never touches the board menu.
+export const LAYOUT_DEFAULT = 'garden-36';
 
 // Real mahjong tiles are taller than they are wide (~26 × 34 mm). Keeping that
 // ratio is most of what makes a board read as a physical set rather than a grid
@@ -113,15 +115,18 @@ export const TIME = {
 
 export const SURPRISE = {
   id: 'surprise-144',
-  // Same size as the classic boards, so the surprise is the shape and nothing else.
-  tiles: 144,
+  // 48 tiles on a 12 × 6 grid. Two constraints pull against each other here: big tiles
+  // want few columns, and recognisable shapes want plenty of cells. 12 columns keeps
+  // tiles at ~68 dp, and asking for only 48 of the ~65 cells a silhouette typically
+  // holds leaves enough slack that thin shapes (stars, rings) still qualify — at 72 the
+  // generator had to retry past them, and 119 of 200 boards came out a butterfly.
+  tiles: 48,
   // The grid the shape is drawn on. Matches the widest hand-authored board, so a
   // surprise shape can never be framed smaller than the turtle.
-  // 16 × 8, not 18 × 9: the board is fitted to the screen, so a wider or deeper shape
-  // means smaller tiles. At 18 × 9 a surprise board measured 44 dp on a 10–11" tablet,
-  // below Android's 48 dp floor — the same trap the crab and spider fell into.
-  width: 16,
-  height: 8,
+  // The board is fitted to the screen, so a wider or deeper shape means smaller tiles:
+  // 12 columns is what keeps a surprise board's tiles the same size as the pagoda's.
+  width: 12,
+  height: 6,
   maxLayers: 5,
   // Some silhouettes are too thin to hold 144 tiles; the generator tries another
   // rather than padding one out into something that no longer looks like anything.
