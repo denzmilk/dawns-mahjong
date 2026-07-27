@@ -73,8 +73,12 @@ async function boot() {
     ui.showScreen(gameState.screen);
   }
 
-  // Same reason: the very first board is dealt before the overlay exists.
-  requestAnimationFrame(() => game.updateSize());
+  // Same reason: the very first board is dealt before the overlay exists. Routed through
+  // onResize so anything listening for a reframe — the ?diag readout included — hears it
+  // and can't report a stale number.
+  requestAnimationFrame(() => game.onResize());
+
+  if (params.has('diag')) showDiagnostics(game);
 
   suppressUnwantedGestures();
   installTestHooks(game, ui, save, audio);
@@ -96,6 +100,37 @@ async function boot() {
 }
 
 /**
+ * ?diag=1 — what this device actually reports, read on the device itself. The board sizes
+ * are tuned to dp, and dp depends on the panel *and* on Android's display-size setting, so
+ * this exists to stop those numbers resting on an assumption. Never shown to Dawn.
+ */
+function showDiagnostics(game) {
+  const el = document.getElementById('diag');
+  el.classList.remove('hidden');
+  const update = () => {
+    const state = game.snapshot();
+    const smallest = state.tiles.length
+      ? Math.min(...state.tiles.map((t) => t.screen.w))
+      : 0;
+    el.textContent = [
+      `viewport   ${window.innerWidth} × ${window.innerHeight} dp`,
+      `pixels     ${Math.round(window.innerWidth * window.devicePixelRatio)} × ${Math.round(
+        window.innerHeight * window.devicePixelRatio
+      )}`,
+      `ratio      ${window.devicePixelRatio}`,
+      `held       ${window.innerHeight > window.innerWidth ? 'upright' : 'on its side'}`,
+      `board      ${state.layout} — ${state.counts.total} tiles`,
+      `tile       ${smallest.toFixed(0)} dp ≈ ${((smallest * 25.4) / 160).toFixed(0)} mm`,
+    ].join('\n');
+  };
+  update();
+  window.addEventListener('resize', () => requestAnimationFrame(update));
+  eventBus.on(Events.VIEW_RESIZED, () => requestAnimationFrame(update));
+  eventBus.on(Events.SCREEN_CHANGED, () => requestAnimationFrame(update));
+  eventBus.on(Events.BOARD_GENERATED, () => requestAnimationFrame(update));
+}
+
+/**
  * The overlay asks, the game answers. Buttons emit ui:* events and this is the only
  * place that turns them into game actions — so the DOM never reaches into the scene.
  */
@@ -103,7 +138,7 @@ function wireUi(game, ui, save, audio) {
   // The board is first fitted while the bar is still hidden, so nothing is reserved for
   // it and tiles end up underneath the buttons. Refit once the bar is actually on screen.
   eventBus.on(Events.SCREEN_CHANGED, ({ screen }) => {
-    if (screen === 'board') requestAnimationFrame(() => game.updateSize());
+    if (screen === 'board') requestAnimationFrame(() => game.onResize());
   });
 
   eventBus.on(Events.UI_START_BOARD, ({ layoutId: chosen }) => {

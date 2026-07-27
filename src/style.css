@@ -473,6 +473,27 @@ body {
   color: rgba(250, 246, 234, 0.7);
 }
 
+/* ?diag=1 readout. A development affordance: it reports what the device actually says
+   about itself, so board sizing rests on measurement rather than on an assumption about
+   what an "11 inch tablet" presents. */
+#diag {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  padding: 1rem 1.4rem;
+  font-family: ui-monospace, monospace;
+  font-size: max(18px, 2vh);
+  line-height: 1.5;
+  color: var(--cream);
+  background: rgba(7, 20, 16, 0.94);
+  border: 3px solid var(--gold);
+  border-radius: 14px;
+  white-space: pre;
+  pointer-events: none;
+}
+
 /* ---------- how to play ---------- */
 
 .legend-layout {
