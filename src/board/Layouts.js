@@ -1,5 +1,5 @@
 import { SURPRISE } from '../core/Constants.js';
-import { buildFittedBoard, generateShape } from './ShapeGenerator.js';
+import { buildFittedBoard, fitShapeToScreen, generateShape } from './ShapeGenerator.js';
 
 // Board shapes as pure data. No Three.js, no DOM — these are imported directly
 // by tests.
@@ -176,6 +176,16 @@ export function getLayout(id, { rng = Math.random, portrait = false, viewportAsp
   }
   const layout = LAYOUTS[id];
   if (!layout) return null;
+
+  // The named shapes get the same treatment: re-laid onto a footprint that matches the
+  // screen, so a cat fills a tablet held upright instead of shrinking to a strip across it.
+  if (layout.masks && viewportAspect !== null) {
+    const fitted = fitShapeToScreen(layout.masks[0], layout.tiles.length, viewportAspect, tileAspect);
+    if (fitted) {
+      return { ...layout, tiles: withIds(fitted.tiles), fitted: `${fitted.cols}×${fitted.rows}` };
+    }
+  }
+
   if (!shouldTurn(layout.tiles)) return layout;
   return { ...layout, tiles: withIds(transposeTiles(layout.tiles)) };
 }

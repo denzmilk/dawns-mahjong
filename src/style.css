@@ -384,11 +384,13 @@ body {
   flex-wrap: wrap;
 }
 
-/* Seven boards: a wrapping grid, so adding a shape needs no layout change. */
+/* Twelve boards: a grid, so adding a shape needs no layout change. Sized to fit the
+   screen rather than to wrap off the bottom of it — Chris found the last three cut off. */
 #board-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 0.5rem;
+  width: 100%;
 }
 
 .board-choice-label {
@@ -560,6 +562,12 @@ body {
   align-items: center;
 }
 
+/* Nothing on a screen may be unreachable. The layouts below are sized to fit, and this is
+   the safety net if a future board or a font-size setting pushes past the bottom. */
+.screen {
+  overflow-y: auto;
+}
+
 /* Portrait: she plays this way up (2026-07-27), so it gets the same care as landscape —
    the bar goes to the bottom, out of the board's way, and the board gets the whole
    height above it. */
@@ -596,11 +604,36 @@ body {
 @media (orientation: portrait) {
   .greeting-layout {
     flex-direction: column;
-    gap: 2vh;
+    gap: 1.4vh;
   }
 
+  /* Smaller upright: the board menu is twelve buttons and they matter more than the
+     photograph. */
   .greeting-portrait {
-    width: min(62vw, 34vh);
+    width: min(44vw, 22vh);
+  }
+
+  #greeting-line {
+    font-size: max(40px, 5vh);
+  }
+
+  #greeting-sub {
+    font-size: max(24px, 2.6vh);
+  }
+
+  .big-button {
+    min-height: max(var(--touch-min), 7vh);
+    min-width: min(560px, 88vw);
+  }
+
+  .board-choice {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  #board-buttons {
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .greeting-words {

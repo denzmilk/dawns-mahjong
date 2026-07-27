@@ -256,3 +256,59 @@ export function buildFittedBoard(count, viewportAspect, tileAspect = 1.32) {
   }
   return null;
 }
+
+/**
+ * Re-lays an authored silhouette onto a footprint that matches the screen.
+ *
+ * The turtle, dragon, cat, fortress, crab and spider are drawn 15–17 columns wide, which
+ * is a landscape shape: upright they shrink to 6 mm tiles. Rather than abandoning the
+ * silhouettes, the base mask is resampled into a grid whose proportions come from the
+ * screen, then stacked by erosion and trimmed to the count. A cat re-laid onto a tall grid
+ * is still recognisably a cat — it is simply a taller cat.
+ */
+export function fitShapeToScreen(baseMask, count, viewportAspect, tileAspect = 1.32) {
+  const srcRows = baseMask.length;
+  const srcCols = baseMask[0].length;
+  const filled = baseMask.reduce((sum, line) => sum + [...line].filter((c) => c === '#').length, 0);
+  const density = filled / (srcRows * srcCols);
+  const ratio = Math.max(0.25, viewportAspect * tileAspect);
+
+  // Grow the footprint until the silhouette, stacked, can hold the whole count.
+  for (let cells = Math.max(12, Math.round(count / Math.max(0.35, density))); cells <= count * 6; cells += 4) {
+    const rows = Math.max(3, Math.round(Math.sqrt(cells / ratio)));
+    const cols = Math.max(3, Math.round(rows * ratio));
+
+    // Nearest-neighbour resample of the authored silhouette into the new grid.
+    const grid = [];
+    for (let r = 0; r < rows; r++) {
+      const sr = Math.min(srcRows - 1, Math.floor(((r + 0.5) / rows) * srcRows));
+      const line = [];
+      for (let c = 0; c < cols; c++) {
+        const sc = Math.min(srcCols - 1, Math.floor(((c + 0.5) / cols) * srcCols));
+        line.push(baseMask[sr][sc] === '#' ? 1 : 0);
+      }
+      grid.push(line);
+    }
+
+    const layers = [grid];
+    while (layers.length < SURPRISE.maxLayers) {
+      const next = erode(layers[layers.length - 1]);
+      if (countGrid(next) === 0) break;
+      layers.push(next);
+    }
+    const total = layers.reduce((sum, layer) => sum + countGrid(layer), 0);
+    if (total < count) continue;
+
+    const trimmed = trimTo(layers, count);
+    const tiles = [];
+    trimmed.forEach((layer, index) => {
+      layer.forEach((line, row) => {
+        line.forEach((cell, col) => {
+          if (cell) tiles.push({ x: col * 2, y: row * 2, layer: index });
+        });
+      });
+    });
+    if (tiles.length === count) return { cols, rows, tiles };
+  }
+  return null;
+}

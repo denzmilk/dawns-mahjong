@@ -120,7 +120,13 @@ export class Ui {
    */
   buildBoardChoices() {
     this.el.boardButtons.replaceChildren();
-    for (const id of LAYOUT_IDS) {
+    // Smallest board first: tile size is what she cares about, and the count is the label,
+    // so the menu should read in order rather than in the order the file happens to define.
+    const ordered = [...LAYOUT_IDS].sort((a, b) => {
+      const size = (id) => (LAYOUTS[id] ? LAYOUTS[id].tiles.length : SURPRISE.tiles);
+      return size(a) - size(b) || a.localeCompare(b);
+    });
+    for (const id of ordered) {
       const layout = LAYOUTS[id] || SURPRISE_BOARD;
       const button = document.createElement('button');
       button.type = 'button';
