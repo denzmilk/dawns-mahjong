@@ -58,8 +58,11 @@ export class AudioSystem {
     eventBus.on(Events.ASSIST_SHUFFLE, () => this.riffle());
     eventBus.on(Events.BOARD_CLEARED, () => this.lick());
     eventBus.on(Events.GAME_NO_MOVES, () => this.sigh());
-    eventBus.on(Events.FX_CELEBRATION, ({ escalated }) => {
-      if (escalated) this.sparkle(1.4);
+    eventBus.on(Events.FX_CELEBRATION, ({ name, escalated }) => {
+      // The riff belongs to the dancing Elvis, so it fires instead of the escalation
+      // sparkle rather than on top of it — two flourishes at once is noise.
+      if (name === 'elvis-spotlight') this.riff();
+      else if (escalated) this.sparkle(1.4);
     });
   }
 
@@ -128,6 +131,45 @@ export class AudioSystem {
   }
 
   /**
+   * The guitar riff the dancing Elvis comes on to. Four notes up a blues scale with the
+   * last one bent, over a sawtooth through a lowpass — which is as close to an electric
+   * guitar as one oscillator gets, and closer than a clean tone would be.
+   *
+   * Original, like everything else here: no recordings and no borrowed melodies anywhere
+   * in this game (docs/tech.md → Licensing).
+   */
+  riff() {
+    const ctx = this.ensureContext();
+    if (!ctx || this.muted) return;
+
+    AUDIO.riff.forEach(([freq, at, length], index) => {
+      const last = index === AUDIO.riff.length - 1;
+      this.tone({
+        freq,
+        type: 'sawtooth',
+        attack: 0.005,
+        decay: length,
+        gain: 0.15,
+        delay: at,
+        // Only the last note bends — a bend on every note is a siren, not a guitar.
+        bend: last ? AUDIO.riffBend : 1,
+        filter: 2200,
+      });
+      // An octave below, quieter, for body.
+      this.tone({
+        freq: freq / 2,
+        type: 'square',
+        attack: 0.006,
+        decay: length * 0.9,
+        gain: 0.05,
+        delay: at,
+        bend: last ? AUDIO.riffBend : 1,
+        filter: 1200,
+      });
+    });
+  }
+
+  /**
    * Board clear: an original rockabilly turnaround. Deliberately not a transcription
    * of an Elvis song — no recordings and no melodies are borrowed anywhere in this
    * game (docs/tech.md → Licensing).
@@ -162,8 +204,22 @@ export class AudioSystem {
     this.tone({ freq: 294, type: 'sine', attack: 0.03, decay: 0.7, gain: 0.14, delay: 0.18 });
   }
 
-  /** One oscillator with an envelope. Every sound above is built from these. */
-  tone({ freq, type = 'sine', attack = 0.005, decay = 0.3, gain = 0.2, delay = 0, bend = 1 }) {
+  /**
+   * One oscillator with an envelope. Every sound above is built from these.
+   *
+   * `filter` rolls the top off a harsh waveform: a raw sawtooth at tablet volume is
+   * unpleasant, and ADR-0002 says nothing may startle her.
+   */
+  tone({
+    freq,
+    type = 'sine',
+    attack = 0.005,
+    decay = 0.3,
+    gain = 0.2,
+    delay = 0,
+    bend = 1,
+    filter = 0,
+  }) {
     const ctx = this.ensureContext();
     if (!ctx || this.muted) return;
     const start = ctx.currentTime + delay;
@@ -178,7 +234,15 @@ export class AudioSystem {
     env.gain.exponentialRampToValueAtTime(gain, start + attack);
     env.gain.exponentialRampToValueAtTime(0.0001, start + attack + decay);
 
-    osc.connect(env).connect(this.master);
+    let node = osc;
+    if (filter) {
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = 'lowpass';
+      lowpass.frequency.value = filter;
+      lowpass.Q.value = 0.8;
+      node = osc.connect(lowpass);
+    }
+    node.connect(env).connect(this.master);
     osc.start(start);
     osc.stop(start + attack + decay + 0.02);
   }

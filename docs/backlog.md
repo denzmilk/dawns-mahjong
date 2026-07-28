@@ -73,7 +73,17 @@ When an entry is **rejected**, wrap the title in `~~strikethrough~~` and add a o
 - [ ] **Elvis reaction on a long match streak** — a small portrait wink / hip-swivel flourish after several quick matches.
   - Source: 2026-07-27 planning session (Elvis theming)
   - Rough size: M · Rough value: S
-  - Notes: Only if it can't be mistaken for something needing a response.
+  - Notes: Only if it can't be mistaken for something needing a response. **Cheaper than it was since milestone 13**: the drawn Elvis and his eight-frame cycle already exist, so a streak flourish is a trigger and a placement rather than new art.
+
+- [ ] **More than one dance** — a second cycle for the Elvis celebration, so the fourth pair on a 144-tile board doesn't play the same eight frames as the first.
+  - Source: 2026-07-28, milestone 13
+  - Rough size: S · Rough value: S
+  - Notes: The pose function is parameterised, so a second cycle is another set of joint curves rather than another drawing. Wait for Chris's playtest — if one dance wears out, this is the fix; if it doesn't, this is clutter. Same argument as the eight celebrations in milestone 05.
+
+- [ ] **A dance on the win screen** — Elvis dancing across the board-clear finale as well as the Elvis-pair celebration.
+  - Source: 2026-07-28, offered to Chris while placing milestone 13 and set aside
+  - Rough size: S · Rough value: S
+  - Notes: He chose the Elvis-pair celebration instead. The finale already carries fireworks, a portrait and the rockabilly lick, and a fourth thing would crowd it. Reopen only if the win screen ever feels thin.
 
 ## Tech & refactors
 

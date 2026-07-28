@@ -55,8 +55,11 @@ src/
     AudioSystem.js       # procedural Web Audio — every sound synthesised
     SaveSystem.js        # versioned localStorage; defensive reads
     InstallSystem.js     # home-screen install prompt + service worker registration
+  assets/
+    TileSheet.js         # slices Chris's sheet into the tile atlas
+    ElvisSprite.js       # the drawn 2D Elvis, built into a sprite sheet at boot
   fx/
-    Celebrations.js      # the eight match animations (milestone 05)
+    Celebrations.js      # the eight match animations (milestone 05) + the dancing Elvis
     Particles.js         # pooled THREE.Points bursts
   ui/
     Ui.js                # the whole HTML overlay: greeting, in-game bar, end screens.
@@ -89,7 +92,8 @@ docs/                    # gameplan, tech, milestones, ADRs, backlog, STATE
 - **Elvis photos:** dropped by Chris into `Assets/`, normalised into `public/assets/elvis/` by `npm run assets:sync`. Eight are cropped square for tile faces; the rest are greeting/win portraits, with `dawn-with-elvis-1.jpg` as the greeting hero. They ship as-is for now but must be **downscaled** — 9 MB is a slow first load on tablet wifi and all of it gets precached by the service worker; tile faces need ~256 px, the hero ~1600 px.
   - The two `dawn-with-elvis-*.jpg` images are generated composites, and their backgrounds contain gibberish poster text. Crop the greeting hero tight to the two figures (see backlog) — garbled text reads as "the game is broken" to a non-technical player.
 - **Licensing:** the Elvis images are third-party publicity photographs. Fine for a family gift; worth knowing that GitHub Pages makes the URL public. If that matters, narrow the set to images Chris owns or that are public domain. **No Elvis audio recordings are used anywhere** — all sound is synthesised (see below), which sidesteps the question entirely for music.
-- **Audio:** procedural Web Audio, generated in code. No files. Melodic content is original — no transcriptions of Elvis songs.
+- **Audio:** procedural Web Audio, generated in code. No files. Melodic content is original — no transcriptions of Elvis songs. That covers both the board-clear lick and the celebration riff added in milestone 13.
+- **The dancing Elvis is drawn in code** (`src/assets/ElvisSprite.js`), not traced from a photograph or a frame of footage. It is a stylised cartoon — jumpsuit, collar, quiff, mic — rather than a likeness, and no reference image was copied. This is the only figurative art in the project that is not one of Chris's own photographs.
 - **Fonts: Atkinson Hyperlegible**, self-hosted from `public/assets/fonts/` (both weights total 22 KB, plus the OFL licence the font's terms require shipping). Designed by the Braille Institute for low-vision readers — its letterforms are pulled deliberately apart so 1/l/I and 0/O can't be confused — and it is a handsome humanist sans rather than a clinical accessibility face. Self-hosted rather than loaded from Google Fonts so the game still reads correctly offline. No other font is used anywhere.
 
 ## Conventions

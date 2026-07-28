@@ -4,13 +4,13 @@
 
 ## Last updated
 
-2026-07-28 by Claude (milestone 12: boards under 48 tiles cut, every board rebuilt as a stepped mound, and a draggable magnifying glass)
+2026-07-28 by Claude (milestone 13: a dancing Elvis and a guitar riff on the Elvis-pair celebration. Milestone 12 before it: boards under 48 tiles cut, every board rebuilt as a stepped mound, and a draggable magnifying glass)
 
 ## Current phase
 
 development
 
-**All twelve milestones are implemented. 92 specs green. The game is complete enough to give to Dawn.**
+**All thirteen milestones are implemented. 97 specs green. The game is complete enough to give to Dawn.**
 
 Ten boards: 48-tile steps (the default), 72-tile easy, 96-tile pagoda, six 144-tile shapes
 (turtle, dragon, cat, fortress, crab, spider), and a surprise board generated fresh every
@@ -37,6 +37,40 @@ acceptance criteria that only Chris — and then Dawn — can close. Nothing is 
 | 11 | more boards, legend, surprise board | green | recognises a shape; finds "How to play"; doubled celebrations not overwhelming |
 | 11b | sized for the Tab A11+ (96-tile board, camera fit) | green | tiles feel big enough on her actual screen |
 | 12 | bigger tiles & a magnifying glass | green | mounds read as boards not chimneys; 4 opening pairs is enough; she finds and uses the glass |
+| 13 | a dancing Elvis & a riff | green | he reads as Elvis at tile scale; the riff doesn't startle; still welcome on the fourth pair |
+
+## A dancing Elvis (2026-07-28)
+
+Chris asked for "a little dancing animation of elvis — a 2D version of him doing a dance
+with a mic in the spotlight, then a sound effect like a guitar riff". Placed on the
+**Elvis-pair celebration** after asking, rather than assumed: that celebration already had
+a cone of light and was already reserved for pairs of Elvis tiles, so the spotlight he
+described was standing empty.
+
+He is **drawn, not photographed** (`src/assets/ElvisSprite.js`) — everything else showing
+Elvis here uses Chris's stills, but a dance needs poses no still has, and there is no Elvis
+footage or audio in this project by design. Built from a skeleton into an eight-frame sprite
+sheet at boot, so the cycle is smooth and there is one texture upload rather than one per
+frame.
+
+Three things the work turned up, all of which the tests now hold:
+
+- **He must be sized against the view, not the world.** A fixed world height made him three
+  quarters of a 4-column board and a quarter of a 12-column one, because the camera pulls
+  back to fit whichever board it is showing.
+- **A symmetric pose function is not a dance.** Driving everything from one sine collapsed
+  eight frames into five distinct poses — the second half of the cycle was the first half
+  played backwards. A shoulder roll in quadrature (cosine against their sine) is what makes
+  the loop go round rather than bounce.
+- **The spotlight had never actually reached the board.** It sat at `mid.y + 7` with the
+  whole cone above the tiles. Lowered to `+3.4` so its pool lands on him — and then
+  narrowed and dimmed, because at the old radius and opacity a pool that reaches the board
+  blows out most of a small one.
+
+The riff is four notes up a blues scale with the last one bent, sawtooth through a lowpass,
+and it fires *instead of* the escalation sparkle rather than on top of it. Deliberately a
+different shape from the board-clear lick: that one turns around and resolves, this one
+rises and stops.
 
 ## Bigger tiles, and a magnifying glass (2026-07-28)
 
@@ -225,11 +259,16 @@ code change.
 
 ## Next step
 
-**Milestone 12 is implemented and approved on the numbers, but uncommitted and unplayed.**
-Stage, ask, push, and then Chris plays it on Dawn's tablet at
-https://denzmilk.github.io/dawns-mahjong/ and works through milestone 12's playtest ACs.
+**Milestones 12 and 13 are live but unplayed.** Chris plays them on Dawn's tablet at
+https://denzmilk.github.io/dawns-mahjong/ and works through the playtest ACs in both.
 
 Known things worth his hands, in priority order:
+
+0. **The dancing Elvis, with the sound on.** Clear a pair of Elvis tiles four times in one
+   board and see whether it is still welcome the fourth time. He is drawn over the tiles
+   for 1.15 s, and the riff is the only new sound since the game was called finished. The
+   levers are `ELVIS_DANCE.heightOfView` (how much of the screen he takes) and
+   `ELVIS_DANCE.fadeOut` (how long he stays).
 
 1. **Do the mounds read as boards?** A 144-tile board is now up to 8 layers deep on a 6 × 4
    footprint. Tiles are half again as big, but a mound that deep hides more of itself than a

@@ -9,7 +9,7 @@ A mahjong solitaire game built for one specific player: Dawn, 90, Elvis fan, pla
 1. **Open** — the game greets her: "Good afternoon, Dawn" in huge type over an Elvis portrait. One or two big buttons: *Carry on* (if a game is saved) and *New game*.
 2. **Look** — a gently tilted 3D board of stacked mahjong tiles. Tiles she can play are bright and crisp; tiles that are trapped underneath or wedged between others are visibly dimmed, so "what can I tap?" is answered without thinking.
 3. **Tap** a playable tile — it lifts up off the board toward her, gains a thick gold outline, and pulses slowly. Impossible to miss.
-4. **Tap its match** — the pair is cleared with one of eight randomised 3D celebrations (they rocket up and collide, crumble into shards, launch fireworks, spin away in a puff of dust, flip end-over-end, swirl into a vortex, burst into confetti, or — for the Elvis tiles — get a spotlight and a shower of rhinestones).
+4. **Tap its match** — the pair is cleared with one of eight randomised 3D celebrations (they rocket up and collide, crumble into shards, launch fireworks, spin away in a puff of dust, flip end-over-end, swirl into a vortex, burst into confetti, or — for the Elvis tiles — a cone of light drops and **Elvis dances in it with a mic**, to a guitar riff, in a shower of rhinestones).
 5. **Repeat** until the board is clear. Progress saves after every pair, so she can put the tablet down mid-game, at any point, and pick up exactly where she left off days later.
 6. **Finish** — board cleared: a full Elvis finale, "Well done, Dawn!", and a running count of boards she's completed.
 
@@ -72,7 +72,7 @@ Nothing carries between sessions except the saved in-progress board, her setting
 - **Elvis:** the greeting screen leads with the photo of **Dawn standing arm-in-arm with Elvis backstage** — that image is the whole personalisation in one picture. Portraits on the win screen, 8 photographs as the Elvis tile faces, and Graceland-ish accents (gold, deep red, a little 50s pink) in the UI chrome.
 - **Palette:** dark green felt `#12301F`, gold `#E8C547`, ivory tile `#F7F2E4`, cream text `#FAF6EA`, Elvis red `#C1272D`. Selection gold is the single brightest thing on screen at any time.
 - **Type:** huge. Greeting 72–96px, buttons 32px+, body never below 24px. High contrast throughout (cream on dark green, targeting WCAG AAA for text).
-- **Asset sourcing:** the tile sheet Chris provided (sliced at runtime — see `docs/tech.md`), Elvis photographs Chris dropped into `Assets/`, and code-generated everything else. No AI generation, no model libraries, no fonts to download.
+- **Asset sourcing:** the tile sheet Chris provided (sliced at runtime — see `docs/tech.md`), Elvis photographs Chris dropped into `Assets/`, and code-generated everything else. No AI generation, no model libraries, no fonts to download. The **dancing Elvis** (2026-07-28) is the one figurative thing that is drawn rather than photographed — a dance needs poses no still has — and it is deliberately a cartoon, so it reads as a flourish beside the photographs rather than as a poor imitation of them.
 
 ## Audio direction
 
@@ -82,6 +82,7 @@ Procedural Web Audio only — no audio files, nothing to load, works offline.
 - Soft two-note **chime** when a pair matches, pitched up slightly as the board empties.
 - Low **thud** on a mismatch — quiet and unstartling, never a buzzer.
 - A short **rockabilly-flavoured lick** on board clear (original, synthesised — no Elvis recordings; see licensing note in `docs/tech.md`).
+- A four-note **guitar riff** when she clears a pair of Elvis tiles and the dancing Elvis appears. Deliberately a different shape from the board-clear lick — that one turns around and resolves, this one rises and stops — so the two moments don't sound alike.
 - No background music. One big mute toggle, remembered between sessions.
 
 ## Player goals
@@ -127,6 +128,7 @@ Detailed milestone docs exist for the first three. The rest are listed here as t
 10. **10 — GitHub Pages deploy** *(done out of order, 2026-07-27)* — pulled forward from 09 so every review happens on the real URL on Dawn's tablet rather than on a desktop dev server. The public repo was created early for the same reason.
 11. **11 — More boards, a legend, and the surprise board** *(built)* — the six shapes she may already know, a how-to-play she can open mid-game, a procedurally generated board, green ticks on finished boards.
 12. **12 — Bigger tiles, and a magnifying glass** *(built, 2026-07-28)* — boards under 48 tiles cut, every board rebuilt as a stepped mound on the footprint that measures biggest, and a draggable magnifying glass (ADR-0004).
+13. **13 — A dancing Elvis, and a riff** *(built, 2026-07-28)* — a drawn 2D Elvis dances with a mic in the spotlight when she clears a pair of Elvis tiles, to a synthesised guitar riff.
 
 ## Resolved decisions
 

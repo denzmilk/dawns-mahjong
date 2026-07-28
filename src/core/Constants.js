@@ -266,6 +266,32 @@ export const CELEBRATION = {
   spinTurns: 2.5,
 };
 
+// The dancing Elvis in the spotlight celebration. Drawn, not photographed — see
+// src/assets/ElvisSprite.js for why.
+export const ELVIS_DANCE = {
+  // Eight poses is one full hip swivel. Fewer and the swivel stutters; more costs texture
+  // for a motion nobody is studying frame by frame.
+  frames: 8,
+  cellWidth: 256,
+  cellHeight: 320,
+  // Frames per second of the dance. 14 is brisk enough to read as dancing and slow enough
+  // that eight poses don't blur into one.
+  fps: 14,
+  // His height as a fraction of what the camera can see, NOT in world units. A fixed world
+  // height makes him three quarters of a 4-column board and a quarter of a 12-column one,
+  // because the camera pulls back to fit whichever board it is showing. As a share of the
+  // view he is the same size on all of them. 0.38 is big enough to be the thing she looks
+  // at and small enough to leave the board readable around him.
+  heightOfView: 0.38,
+  // Where his feet sit relative to his own height: 0.5 would centre him on the cleared
+  // pair, so this drops him until he looks like he is standing on the board.
+  footLift: 0.42,
+  // Fractions of the celebration: on fast, off before the tiles have finished leaving, so
+  // he is never the thing she is waiting for.
+  fadeIn: 0.12,
+  fadeOut: 0.82,
+};
+
 export const PARTICLES = {
   // Pooled and capped: create/destroy churn per burst is what drops frames on a
   // mid-range tablet GPU. The pool is sized for the doubled bursts plus overlap —
@@ -284,6 +310,21 @@ export const AUDIO = {
   // A pentatonic run, so the match chime rising as the board empties can never land
   // on a sour interval.
   chimeScale: [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51],
+  // The dancing Elvis's entrance riff: [frequency, start, decay]. Four notes off a blues
+  // scale in G, the last one bent up like a string being pushed — short, cocky, and over
+  // before the celebration is.
+  //
+  // Deliberately a different shape from the board-clear `lick` below. They fire at
+  // different moments and would flatten each other if they sounded alike: this one rises
+  // and stops, that one turns around and resolves.
+  riff: [
+    [392, 0, 0.11],
+    [466.16, 0.09, 0.11],
+    [523.25, 0.18, 0.13],
+    [587.33, 0.29, 0.34],
+  ],
+  // How far the last note of the riff bends up. A whole tone: a string pushed, not a siren.
+  riffBend: 1.122,
   // An original rockabilly turnaround for the board clear: [frequency, start, decay].
   // Deliberately not a transcription of any Elvis song — see docs/tech.md.
   lick: [

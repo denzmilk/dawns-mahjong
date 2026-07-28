@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { CELEBRATION, COLORS, PARTICLES, TILE } from '../core/Constants.js';
+import { CELEBRATION, COLORS, ELVIS_DANCE, PARTICLES, TILE } from '../core/Constants.js';
 import { isElvisFace } from '../board/BoardRules.js';
+import { buildElvisSheet } from '../assets/ElvisSprite.js';
 
 // Eight ways to clear a pair, picked at random with no immediate repeat. Clearing a
 // pair is the entire reward loop of this game — 36 to 72 times a board — so the same
@@ -195,27 +196,32 @@ export const CELEBRATIONS = [
     },
   },
   {
-    // The Elvis one: a spotlight sweep and a shower of rhinestones. Reserved for
-    // pairs of Elvis tiles, and unmistakable when it lands.
+    // The Elvis one: he steps into a cone of light, dances, and is gone in a shower of
+    // rhinestones. Reserved for pairs of Elvis tiles, and unmistakable when it lands.
     name: 'elvis-spotlight',
     sparks: 'rhinestone',
     elvisOnly: true,
     run(ctx, t) {
+      // The tiles get out of his way rather than competing with him: up and out to the
+      // sides, where before they strutted through the middle of the shot.
       ctx.meshes.forEach((mesh, i) => {
         const from = ctx.starts[i];
         const strut = easeOutCubic(Math.min(1, t / 0.5));
         mesh.position.y = from.y + strut * 2.6;
-        mesh.position.x = from.x + Math.sin(t * Math.PI * 3) * 0.35;
+        mesh.position.x = from.x + (i === 0 ? -1 : 1) * strut * 1.5;
         mesh.rotation.y = strut * Math.PI * 2;
         mesh.rotation.z = Math.sin(t * Math.PI * 4) * 0.22 * (i === 0 ? 1 : -1);
         mesh.scale.setScalar(t < 0.66 ? 1 + strut * 0.22 : Math.max(0, 1 - (t - 0.66) / 0.34));
       });
       if (ctx.spotlight) {
         ctx.spotlight.visible = t < 0.9;
-        ctx.spotlight.position.set(ctx.mid.x, ctx.mid.y + 7, ctx.mid.z);
-        ctx.spotlight.material.opacity = Math.sin(Math.min(1, t / 0.9) * Math.PI) * 0.5;
+        // Low enough that the pool of light lands where he is standing. It used to sit at
+        // +7, which put the whole cone above the board lighting nothing in particular.
+        ctx.spotlight.position.set(ctx.mid.x, ctx.mid.y + 3.4, ctx.mid.z);
+        ctx.spotlight.material.opacity = Math.sin(Math.min(1, t / 0.9) * Math.PI) * 0.34;
         ctx.spotlight.rotation.y = t * 3;
       }
+      if (ctx.dancer) ctx.dancer.play(ctx.mid, t);
       if (ctx.once(0.18) || ctx.once(0.52)) {
         for (const start of ctx.starts) {
           ctx.emit(start.clone().setY(start.y + 2), {
@@ -273,9 +279,126 @@ export function buildShards(mesh, parent) {
   return shards;
 }
 
-/** The cone of light the Elvis celebration sweeps across the board. */
+/**
+ * The dancing Elvis: one camera-facing quad showing one frame of the sprite sheet at a
+ * time. Built once and reused, like the spotlight — a celebration that allocates is a
+ * celebration that stutters on the 40th repetition.
+ */
+export class ElvisDancer {
+  constructor() {
+    this.texture = new THREE.CanvasTexture(buildElvisSheet());
+    this.texture.colorSpace = THREE.SRGBColorSpace;
+    // One cell of the strip at a time, stepped by offset.x.
+    this.texture.repeat.set(1 / ELVIS_DANCE.frames, 1);
+    this.texture.minFilter = THREE.LinearFilter;
+    this.texture.generateMipmaps = false;
+
+    // Unit-height geometry, scaled to the view in setViewHeight — so a new board or a
+    // rotation never rebuilds a buffer.
+    this.height = 1;
+    this.mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(ELVIS_DANCE.cellWidth / ELVIS_DANCE.cellHeight, 1),
+      new THREE.MeshBasicMaterial({
+        map: this.texture,
+        transparent: true,
+        // Drawn over the board rather than into it. He is a flourish in a spotlight, and
+        // the alternative — Elvis buried to the waist in a stack of tiles — is worse than
+        // the depth being wrong.
+        depthTest: false,
+        depthWrite: false,
+      })
+    );
+    this.mesh.renderOrder = 12;
+    this.mesh.visible = false;
+    this.frame = 0;
+  }
+
+  /** Faces the fixed camera, so "up" on the drawing is up on her screen. */
+  faceCamera(camera) {
+    this.mesh.quaternion.copy(camera.quaternion);
+  }
+
+  /**
+   * Sizes him against what the camera can see rather than against the board's own units.
+   * `viewHeight` is the world height of the frustum where the board sits, so he comes out
+   * the same size on screen whether he is dancing on a 4-column board or a 12-column one.
+   */
+  setViewHeight(viewHeight) {
+    this.height = viewHeight * ELVIS_DANCE.heightOfView;
+    this.mesh.scale.setScalar(this.height);
+  }
+
+  /**
+   * Keeps him on the board. He dances where the pair was, which connects the flourish to
+   * what she just did — but a pair in the corner put him half off the edge of the screen,
+   * which is a poor reward for finding the two hardest tiles on the board.
+   */
+  setBounds(bounds) {
+    this.bounds = bounds;
+  }
+
+  /**
+   * One step of the dance. `t` is the celebration's own 0 → 1, so the whole thing steps
+   * deterministically under advanceTime() like everything else (ADR-0003).
+   */
+  play(mid, t) {
+    const visible = t >= ELVIS_DANCE.fadeIn && t < ELVIS_DANCE.fadeOut;
+    this.mesh.visible = visible;
+    if (!visible) return;
+
+    this.frame =
+      Math.floor(t * CELEBRATION.duration * ELVIS_DANCE.fps) % ELVIS_DANCE.frames;
+    this.texture.offset.x = this.frame / ELVIS_DANCE.frames;
+
+    const half = (this.height * ELVIS_DANCE.cellWidth) / ELVIS_DANCE.cellHeight / 2;
+    this.mesh.position.set(
+      clamp(mid.x, this.bounds?.min.x, this.bounds?.max.x, half),
+      mid.y + this.height * (0.5 - ELVIS_DANCE.footLift),
+      clamp(mid.z, this.bounds?.min.z, this.bounds?.max.z, half)
+    );
+    // In fast, out fast, full strength in between — he should look like he arrived, not
+    // like he faded up.
+    const span = ELVIS_DANCE.fadeOut - ELVIS_DANCE.fadeIn;
+    const local = (t - ELVIS_DANCE.fadeIn) / span;
+    this.mesh.material.opacity = Math.min(1, Math.min(local, 1 - local) * 7);
+  }
+
+  hide() {
+    this.mesh.visible = false;
+  }
+
+  snapshot() {
+    return { visible: this.mesh.visible, frame: this.frame, frames: ELVIS_DANCE.frames };
+  }
+
+  dispose() {
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+    this.texture.dispose();
+  }
+}
+
+/**
+ * Holds a value inside [min + inset, max - inset]. A board narrower than he is wide leaves
+ * no room to clamp into, so he goes to the middle of it rather than to a nonsense edge.
+ */
+function clamp(value, min, max, inset) {
+  if (min === undefined || max === undefined) return value;
+  const low = min + inset;
+  const high = max - inset;
+  if (low >= high) return (min + max) / 2;
+  return Math.min(high, Math.max(low, value));
+}
+
+/**
+ * The cone of light the Elvis celebration sweeps across the board.
+ *
+ * Narrower and dimmer than it was. Once the cone was lowered so its pool actually lands on
+ * the board, a 2.4-radius cone at half opacity blew out most of a small board — and the
+ * whole point of the light is to pick one man out of the dark, not to floodlight the table.
+ */
 export function buildSpotlight() {
-  const geometry = new THREE.ConeGeometry(2.4, 7, 24, 1, true);
+  const geometry = new THREE.ConeGeometry(1.7, 7, 24, 1, true);
   const material = new THREE.MeshBasicMaterial({
     color: 0xfff6d0,
     transparent: true,

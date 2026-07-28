@@ -35,7 +35,7 @@ import { CameraSystem } from '../systems/CameraSystem.js';
 import { InputSystem } from '../systems/InputSystem.js';
 import { MagnifierSystem } from '../systems/MagnifierSystem.js';
 import { Particles } from '../fx/Particles.js';
-import { buildShards, buildSpotlight, pickCelebration } from '../fx/Celebrations.js';
+import { ElvisDancer, buildShards, buildSpotlight, pickCelebration } from '../fx/Celebrations.js';
 
 export class Game {
   constructor(container, { layoutId, seed, atlasCanvas = null } = {}) {
@@ -92,6 +92,8 @@ export class Game {
     this.magnifier = new MagnifierSystem();
     this.spotlight = buildSpotlight();
     this.scene.add(this.spotlight);
+    this.dancer = new ElvisDancer();
+    this.scene.add(this.dancer.mesh);
     this.loadLayout(layoutId || gameState.layoutId, { seed });
 
     this.input = new InputSystem(this.renderer.domElement, (x, y) => this.handleTap(x, y), {
@@ -221,6 +223,9 @@ export class Game {
     this.celebrations = [];
     this.matchesThisBoard = 0;
     this.particles.clear();
+    // A new board mid-celebration must not leave Elvis standing on it.
+    this.dancer.hide();
+    this.spotlight.visible = false;
     for (const mesh of this.tileMeshes) {
       delete mesh.userData.entrance;
       mesh.rotation.set(0, 0, 0);
@@ -244,6 +249,9 @@ export class Game {
     this.celebrations = [];
     this.matchesThisBoard = 0;
     this.particles.clear();
+    // A new board mid-celebration must not leave Elvis standing on it.
+    this.dancer.hide();
+    this.spotlight.visible = false;
     for (const mesh of this.tileMeshes) {
       const target = mesh.position.clone();
       mesh.userData.entrance = {
@@ -602,6 +610,7 @@ export class Game {
         mid: run.mid,
         shards: run.shards,
         spotlight: this.spotlight,
+        dancer: this.dancer,
         emit: (origin, options) => this.particles.emit(origin, options),
         // Lets an animation fire a one-shot (a burst, a bang) at a moment in its
         // timeline without it repeating every frame after that point.
@@ -624,7 +633,10 @@ export class Game {
           this.scene.remove(shard.mesh);
           shard.mesh.geometry.dispose();
         }
-        if (run.celebration.name === 'elvis-spotlight') this.spotlight.visible = false;
+        if (run.celebration.name === 'elvis-spotlight') {
+          this.spotlight.visible = false;
+          this.dancer.hide();
+        }
         // An escalated match, or the last pair on the board, earns a bigger bang.
         if (run.escalated && gameState.remaining > 0) {
           this.particles.emit(run.mid, {
@@ -872,6 +884,15 @@ export class Game {
     const centre = bounds.getCenter(new THREE.Vector3());
 
     this.cameraSystem.frame(this.framingPoints(), centre, width, height, measureHudInset());
+    // Re-aimed and re-sized after the camera is framed, not before: at construction the
+    // camera is still at its default orientation, and a dancer squared up to that lies flat
+    // on the table. The height comes from how much of the world the camera can see where
+    // the board sits, so he is the same size on screen on every board.
+    this.dancer.faceCamera(this.camera);
+    this.dancer.setViewHeight(
+      2 * Math.tan(THREE.MathUtils.degToRad(CAMERA.fov) / 2) * this.cameraSystem.distance
+    );
+    this.dancer.setBounds(bounds);
     this.magnifier.setViewport(width, height, this.renderer.getPixelRatio());
     this.fitShadowCamera();
     this.invalidateShadows();
@@ -1064,6 +1085,7 @@ export class Game {
       stuck: gameState.stuck,
       availablePairs: this.pairCount,
       magnifier: this.magnifier.snapshot(),
+      dancer: this.dancer.snapshot(),
       time: {
         mode: this.manualTime ? 'manual' : 'auto',
         elapsed: round(gameState.elapsed),
@@ -1086,6 +1108,7 @@ export class Game {
     window.removeEventListener('resize', this.onResize);
     this.input?.dispose();
     this.magnifier.dispose();
+    this.dancer.dispose();
     this.disposeTiles();
     this.tileMaterial.dispose();
     this.atlasTexture.dispose();
