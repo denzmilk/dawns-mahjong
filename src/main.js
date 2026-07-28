@@ -59,6 +59,10 @@ async function boot() {
   });
   wireUi(game, ui, save, audio);
 
+  // The glass comes back out if she left it out (ADR-0004), on either path into the game.
+  game.setMagnifier(save.magnifier);
+  ui.setMagnifierOn(save.magnifier);
+
   if (straightToBoard) {
     ui.showScreen(gameState.screen);
   } else {
@@ -162,6 +166,7 @@ function wireUi(game, ui, save, audio) {
   });
   eventBus.on(Events.UI_LAYOUT_CHOSEN, ({ layoutId: chosen }) => save.setPreferredLayout(chosen));
   eventBus.on(Events.UI_SOUND_TOGGLED, () => save.setMuted(audio.toggleMuted()));
+  eventBus.on(Events.UI_MAGNIFIER_TOGGLED, () => save.setMagnifier(game.toggleMagnifier()));
 
   // Autosave after anything that changes the board. Cheap (one localStorage write of
   // a few KB) and it means the game survives the tablet being closed mid-pair.
@@ -237,6 +242,16 @@ function installTestHooks(game, ui, save, audio) {
     },
     setScreen: (screen) => game.setScreen(screen),
     home: () => game.goHome(),
+
+    /** The magnifying glass, without going through the bar (ADR-0004). */
+    magnifier: {
+      set: (on) => game.setMagnifier(on),
+      toggle: () => game.toggleMagnifier(),
+      moveTo: (x, y) => game.moveMagnifier(x, y),
+      /** Where a tap at this point would actually land on the board. */
+      sourcePoint: (x, y) =>
+        game.magnifier.contains(x, y) ? game.magnifier.sourcePoint(x, y) : { x, y },
+    },
 
     /**
      * Loads an arbitrary board, bypassing generation. Tests use it to set up

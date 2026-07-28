@@ -33,6 +33,7 @@ import {
 } from '../board/TileMeshes.js';
 import { CameraSystem } from '../systems/CameraSystem.js';
 import { InputSystem } from '../systems/InputSystem.js';
+import { MagnifierSystem } from '../systems/MagnifierSystem.js';
 import { Particles } from '../fx/Particles.js';
 import { buildShards, buildSpotlight, pickCelebration } from '../fx/Celebrations.js';
 
@@ -88,11 +89,17 @@ export class Game {
     this.buildTable();
     this.buildSelectionMarkers();
     this.particles = new Particles(this.scene);
+    this.magnifier = new MagnifierSystem();
     this.spotlight = buildSpotlight();
     this.scene.add(this.spotlight);
     this.loadLayout(layoutId || gameState.layoutId, { seed });
 
-    this.input = new InputSystem(this.renderer.domElement, (x, y) => this.handleTap(x, y));
+    this.input = new InputSystem(this.renderer.domElement, (x, y) => this.handleTap(x, y), {
+      // The one draggable thing in the game (ADR-0004). Everything else still gets the
+      // tap-only rules — `grab` returning false is what leaves them untouched.
+      grab: (x, y) => gameState.screen === 'board' && this.magnifier.contains(x, y),
+      drag: (x, y) => this.moveMagnifier(x, y),
+    });
     this.onResize = this.onResize.bind(this);
     window.addEventListener('resize', this.onResize);
     this.tick = this.tick.bind(this);
@@ -456,6 +463,15 @@ export class Game {
     // tap can't skip past the feedback and land somewhere unexpected.
     if (this.mismatchHold > 0) return;
 
+    // A tap on the glass means the tile she can see through it, not the tile the board
+    // happens to have at that point. Without this the magnifier would be a decoration she
+    // had to drag out of the way before playing (ADR-0004).
+    if (this.magnifier.contains(cssX, cssY)) {
+      const source = this.magnifier.sourcePoint(cssX, cssY);
+      cssX = source.x;
+      cssY = source.y;
+    }
+
     const hit = this.pickAt(cssX, cssY) ?? this.forgiveTap(cssX, cssY);
     if (hit === null) return;
 
@@ -760,6 +776,26 @@ export class Game {
     this.dirty = true;
   }
 
+  // --- the magnifying glass (ADR-0004) ------------------------------------
+
+  /** Turns the glass on or off. Returns the new state so the caller can save it. */
+  setMagnifier(on) {
+    this.magnifier.on = Boolean(on);
+    this.dirty = true;
+    eventBus.emit(Events.MAGNIFIER_TOGGLED, this.magnifier.snapshot());
+    return this.magnifier.on;
+  }
+
+  toggleMagnifier() {
+    return this.setMagnifier(!this.magnifier.on);
+  }
+
+  moveMagnifier(cssX, cssY) {
+    this.magnifier.moveTo(cssX, cssY);
+    this.dirty = true;
+    eventBus.emit(Events.MAGNIFIER_MOVED, this.magnifier.snapshot());
+  }
+
   /** Back to the front screen, leaving the board standing behind it. */
   goHome() {
     gameState.selectedId = null;
@@ -836,6 +872,7 @@ export class Game {
     const centre = bounds.getCenter(new THREE.Vector3());
 
     this.cameraSystem.frame(this.framingPoints(), centre, width, height, measureHudInset());
+    this.magnifier.setViewport(width, height, this.renderer.getPixelRatio());
     this.fitShadowCamera();
     this.invalidateShadows();
   }
@@ -926,6 +963,9 @@ export class Game {
 
   renderNow() {
     this.renderer.render(this.scene, this.camera);
+    // Over the top of the finished frame, and only when she has it switched on — this is
+    // a second full render of the board, which is not worth paying for otherwise.
+    this.magnifier.render(this.renderer, this.scene, this.camera);
     this.renderCount++;
     this.dirty = false;
   }
@@ -1023,6 +1063,7 @@ export class Game {
       mismatchPair: gameState.mismatchPair,
       stuck: gameState.stuck,
       availablePairs: this.pairCount,
+      magnifier: this.magnifier.snapshot(),
       time: {
         mode: this.manualTime ? 'manual' : 'auto',
         elapsed: round(gameState.elapsed),
@@ -1044,6 +1085,7 @@ export class Game {
   dispose() {
     window.removeEventListener('resize', this.onResize);
     this.input?.dispose();
+    this.magnifier.dispose();
     this.disposeTiles();
     this.tileMaterial.dispose();
     this.atlasTexture.dispose();

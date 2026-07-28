@@ -4,21 +4,21 @@
 
 ## Last updated
 
-2026-07-27 by Claude (pivot from *Jimothy's Big Day Out* to *Dawn's Mahjong*; the whole milestone ladder 01–10 implemented)
+2026-07-28 by Claude (milestone 12: boards under 48 tiles cut, every board rebuilt as a stepped mound, and a draggable magnifying glass)
 
 ## Current phase
 
 development
 
-**All eleven milestones are implemented. 83 specs green. The game is complete enough to give to Dawn.**
+**All twelve milestones are implemented. 92 specs green. The game is complete enough to give to Dawn.**
 
-Eight boards: 72-tile easy, six 144-tile shapes (turtle, dragon, cat, fortress, crab,
-spider), and a surprise board generated fresh every game. A "How to play" legend on the
-bar. Green ticks on finished boards. Celebrations doubled.
+Ten boards: 48-tile steps (the default), 72-tile easy, 96-tile pagoda, six 144-tile shapes
+(turtle, dragon, cat, fortress, crab, spider), and a surprise board generated fresh every
+game. A "How to play" legend on the bar. Green ticks on finished boards. A magnifying glass
+she can drag about. Celebrations doubled.
 
-Every milestone doc (01–10) is `in-progress` rather than `done` for one reason: each has
-playtest acceptance criteria that only Chris — and then Dawn — can close. Nothing is
-blocked on code.
+Every milestone doc is `in-progress` rather than `done` for one reason: each has playtest
+acceptance criteria that only Chris — and then Dawn — can close. Nothing is blocked on code.
 
 **Live at https://denzmilk.github.io/dawns-mahjong/** — reviews happen there, not on localhost.
 
@@ -36,6 +36,82 @@ blocked on code.
 | 10 | Pages deploy | green | opens on her tablet |
 | 11 | more boards, legend, surprise board | green | recognises a shape; finds "How to play"; doubled celebrations not overwhelming |
 | 11b | sized for the Tab A11+ (96-tile board, camera fit) | green | tiles feel big enough on her actual screen |
+| 12 | bigger tiles & a magnifying glass | green | mounds read as boards not chimneys; 4 opening pairs is enough; she finds and uses the glass |
+
+## Bigger tiles, and a magnifying glass (2026-07-28)
+
+Chris, after playing it: cut everything under 48 tiles ("too small and simple, gran won't
+like those"), stack the 144-tile boards higher on a smaller footprint so their tiles come
+out near the 48-tile board's, and add a big draggable magnifying glass.
+
+**Measured on her tablet (600 × 960 dp upright / 960 × 600 on its side), before → after:**
+
+| board | upright | on its side |
+|---|---|---|
+| steps-48 | 61 → **90** | 75 → **92** |
+| easy-72 | 68 → **97** | 61 → **89** |
+| pagoda-96 | 89 → **97** | 61 → **86** |
+| turtle-144 | 58 → **82** | 58 → **70** |
+| dragon / cat / fortress / crab / spider | 58–66 → **73–94** | 51–58 → **75–79** |
+| surprise | 49 → **97** | 51 → **91** |
+
+Every board now clears the 64 dp touch floor both ways up — a promise that used to belong
+to the two smallest boards only, while the 144-tile ones missed it by 20 dp.
+
+Four changes got there, and the order matters because each one unlocked the next:
+
+1. **The footprint is searched, not derived.** Rows and columns are now tried
+   independently and scored by the tile size they would produce. The old builder pinned the
+   footprint's proportions to the *screen's*, which is wrong — the stack reaches up the
+   screen, so the best footprint is wider and shallower than the screen by exactly the
+   height the mound will claim. Most of the landscape gain is this one change.
+2. **The mound steps inward** (`buildSteppedBoard`): each level an erosion of the one
+   below, one layer per level, remainder on the base. Every step leaves a ledge of tappable
+   tiles. A straight-sided tower only ever offers the two ends of its top row, however many
+   tiles are underneath — that is why the previous flat-stack builder needed a wide
+   footprint to stay playable.
+3. **`BOARD.minOpeningPairs: 4`** — the generator deals the first few pairs onto tiles that
+   are free before anything has been cleared, so a deep board cannot open as a wall. This is
+   what let `minPlayable` drop 14 → 10, which is what let the footprints shrink. Free tiles
+   were always a poor proxy for pairs: boards passing at 14 still opened with two.
+4. **`BOARD.maxLayers: 8`**, measured. 6 → 8 lifted the 144-tile boards from 65–73 dp to
+   74–82; 10 gained one more dp and nothing else, because past 8 the tower leans far enough
+   toward the camera that perspective shrinks the far bottom row by as much as the narrower
+   footprint gained.
+
+**The bar-overlap fix from the backlog finally landed**, and none of the three approaches
+recorded there was the answer. Moving the camera at all is what makes the frustum grow on
+both sides. The board is fitted to the bar-free strip and then slid onto it by shearing the
+*projection* (`camera.setViewOffset`) — same view, different landing spot. Free, and it also
+removed two tiles that sat a pixel or two off the left edge on three of the 144-tile boards.
+
+**The magnifying glass** is ADR-0004, which supersedes part of ADR-0002's no-drag rule —
+narrowly, for the glass and nothing else. `InputSystem` asks once on pointer-down whether
+the press landed on the glass; if not, the tap-only rules apply exactly as before, and a
+test asserts it. It re-renders the scene through a zoomed camera rather than scaling pixels
+already drawn, at 2× — which is both enough to fit three or four tiles in the lens and about
+where the ~79 × 99 px source artwork gives out. Tapping through it plays the tile she can
+see, so it never has to be moved out of the way.
+
+**Two bugs this surfaced, both real:**
+
+- **A tap that cleared the last pair skipped straight past the win screen.** A tap arrives
+  twice — as a pointer event, then as the click the browser synthesises after it — and the
+  second one pressed whichever button had appeared under her finger. A screen that has just
+  appeared now ignores taps for `TIMING.screenSettle` (0.35 s).
+- **The bar wrapped onto two rows in landscape** once it had a sixth button: 184 px of a
+  600 dp screen, and 13 dp off every tile. Only the padding inside the buttons was cut —
+  labels and the 64 dp minimum are untouched.
+
+`npm run measure:boards` prints the table above by driving the real game in a real browser;
+`npm run capture:boards -- <board>` saves PNGs to `output/iterate/`. Both exist so the next
+session argues from numbers rather than from memory.
+
+**Chris signed off the same day, on both halves.** The sizes: *"sizes are looking great
+now."* And ADR-0004: *"still make the magnifying glass a drag, that rule can be broken"* —
+so the ADR is **accepted**, not proposed, and the no-drag exception is a settled decision
+rather than one waiting on him. What is still open is only what his hands and Dawn's can
+tell us: milestone 12's playtest ACs.
 
 ## Last action
 
@@ -149,18 +225,27 @@ code change.
 
 ## Next step
 
-**Chris plays the finished game on Dawn's tablet** at https://denzmilk.github.io/dawns-mahjong/,
-installs it to the home screen, and works through the playtest column above. Then the
-milestones can be marked `done` and the game handed over.
+**Milestone 12 is implemented and approved on the numbers, but uncommitted and unplayed.**
+Stage, ask, push, and then Chris plays it on Dawn's tablet at
+https://denzmilk.github.io/dawns-mahjong/ and works through milestone 12's playtest ACs.
 
-Known things worth his judgement, in priority order:
+Known things worth his hands, in priority order:
 
-1. **The 144-tile turtle at 47 dp per tile** on a 10–11" screen. Tap forgiveness makes it
-   usable, but it is under this project's own 64 dp rule and he may prefer to hide it on
-   small screens.
-2. **Whether the celebrations wear out.** Eight of them, no immediate repeats, escalation
-   every 6th match — but 36 matches a board is a lot, and only a real session tells.
-3. **Whether the greeting hero crop is tight enough.** A sliver of AI-garbled poster text
+1. **Do the mounds read as boards?** A 144-tile board is now up to 8 layers deep on a 6 × 4
+   footprint. Tiles are half again as big, but a mound that deep hides more of itself than a
+   flat board does, and only his eyes on the real screen settle whether that is a fair
+   trade. `output/iterate/turtle-144-upright.png` and `spider-144-upright.png` are the
+   captures to look at first. The lever is `BOARD.maxLayers` — 6 gives shallower boards at
+   65–73 dp instead of 74–82.
+2. **Is four opening pairs enough?** It is the guaranteed floor, not the average, and the
+   floor is what a bad board feels like. `BOARD.minOpeningPairs` raises it; every step up
+   costs footprint, and therefore tile size.
+3. **The magnifier at 2× is bigger but softer** than the board around it, because the source
+   tile art is only ~79 × 99 px. If it looks soft to him, the full-resolution tile pack is
+   the fix, not more zoom (`docs/backlog.md`).
+4. **Whether the celebrations wear out.** Eight of them, no immediate repeats, escalation
+   every 3rd match — but 24 matches a board is a lot, and only a real session tells.
+5. **Whether the greeting hero crop is tight enough.** A sliver of AI-garbled poster text
    remains top-left of `dawn-with-elvis-1.jpg`.
 
 ## What the last stretch built
@@ -229,4 +314,6 @@ an armchair, and they contradict ADR-0002. That is recorded in milestone 05.
 - `window.__debug` holds the test hooks: `pickAt`, `readPixels`, `samplePoints`, `capture()`. Use `capture()` for `output/iterate/` PNGs; use `samplePoints` rather than reading a whole buffer back (four million values at dpr 2).
 - Headless Chromium's canvas compositing makes the ANGLE driver log `GPU stall due to ReadPixels`. It is browser noise, filtered by pattern in `tests/boot.spec.js` only — every warning the app itself logs still fails that test.
 - `three` r185 deprecates `PCFSoftShadowMap`; use `PCFShadowMap`.
-- ADR-0002 (accessibility-first constraints) is the project's spine: single tap only, fixed camera, 64 dp targets, 24 px minimum text, nothing punishing. Most design questions are already answered there.
+- ADR-0002 (accessibility-first constraints) is the project's spine: single tap only, fixed camera, 64 dp targets, 24 px minimum text, nothing punishing. Most design questions are already answered there. **ADR-0004 narrows exactly one clause** — the magnifying glass may be dragged. Nothing else may; the next feature that wants a gesture argues its own case.
+- **Board sizing is settled by measurement, never by argument.** `npm run measure:boards` drives the real game in a real browser and prints tile size, footprint, layers and opening pairs for every board both ways up. Every number quoted in this file came from it. `npm run capture:boards -- <board>` saves the render.
+- **`tileScale` in `ShapeGenerator.js` is an approximation on purpose** — it ignores perspective and is only there to rank one candidate footprint against another. It over-values tall stacks, which is why `BOARD.maxLayers` is a measured cap rather than something the score works out for itself. Don't "fix" it into a full projection without re-measuring the caps.

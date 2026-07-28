@@ -33,18 +33,50 @@ export class CameraSystem {
     // the opposite edge.
     const usable = Math.max(160, height - inset.top - inset.bottom);
     this.camera.aspect = width / height;
-    this.target.copy(centre);
-
-    this.camera.position.copy(this.target).addScaledVector(this.direction, 1);
-    this.camera.lookAt(this.target);
-    this.camera.updateMatrixWorld(true);
 
     const tanFull = Math.tan(THREE.MathUtils.degToRad(CAMERA.fov) / 2);
     const tanV = tanFull * (usable / height);
     const tanH = tanFull * this.camera.aspect;
+
+    this.target.copy(centre);
+    this.distance = (1 + this.solvePushback(points, tanH, tanV)) * CAMERA.margin;
+
+    // The board is now fitted to a strip the height of the free space, but that strip is
+    // centred on the canvas — still under the bar. Slide it onto the bar-free strip by
+    // shearing the PROJECTION rather than by moving the camera.
+    //
+    // Moving the camera is what the two earlier attempts did, and it is why this sat in
+    // the backlog: off-centring the board relative to the view axis makes the frustum grow
+    // on both sides to keep it in, so a bar on one side costs tile size on both. It also
+    // changed how near the front row sat, which put two tiles of the 144-tile boards a
+    // couple of pixels off the left edge where they could not be tapped at all. A shear
+    // moves where the fitted board LANDS without changing what the camera sees, so the fit
+    // above stays exact: the board's band comes out spanning exactly inset.top to
+    // height - inset.bottom.
+    const shiftPixels = (inset.top - inset.bottom) / 2;
+    if (shiftPixels === 0) this.camera.clearViewOffset();
+    // Negative offsetY raises the frustum's top edge, which moves the board DOWN the
+    // screen — the right way when the bar is up there.
+    else this.camera.setViewOffset(width, height, 0, -shiftPixels, width, height);
+
+    this.camera.position.copy(this.target).addScaledVector(this.direction, this.distance);
+    this.camera.lookAt(this.target);
+    this.camera.updateProjectionMatrix();
+    this.camera.updateMatrixWorld(true);
+  }
+
+  /**
+   * How far back the camera has to sit, along its fixed view axis, for every point to
+   * fall inside the frustum. Pushing back along the axis leaves camera-space X and Y
+   * untouched, so this is exact rather than iterated.
+   */
+  solvePushback(points, tanH, tanV) {
+    this.camera.position.copy(this.target).addScaledVector(this.direction, 1);
+    this.camera.lookAt(this.target);
+    this.camera.updateMatrixWorld(true);
+
     const inverse = new THREE.Matrix4().copy(this.camera.matrixWorld).invert();
     const corner = new THREE.Vector3();
-
     let pushback = 0;
     for (const point of points) {
       corner.copy(point).applyMatrix4(inverse);
@@ -55,19 +87,7 @@ export class CameraSystem {
         Math.abs(corner.y) / tanV + corner.z
       );
     }
-
-    this.distance = (1 + pushback) * CAMERA.margin;
-
-    // Slide the board into the middle of the usable strip. Screen-up is -z for this fixed
-    // camera, so a bar at the bottom (inset.bottom) moves the board towards -z.
-    const shiftPixels = (inset.top - inset.bottom) / 2;
-    const worldPerPixel = (2 * tanFull * this.distance) / height;
-    this.target.z -= shiftPixels * worldPerPixel;
-
-    this.camera.position.copy(this.target).addScaledVector(this.direction, this.distance);
-    this.camera.lookAt(this.target);
-    this.camera.updateProjectionMatrix();
-    this.camera.updateMatrixWorld(true);
+    return pushback;
   }
 
   snapshot() {

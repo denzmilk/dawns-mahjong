@@ -74,6 +74,16 @@ body {
   display: none !important;
 }
 
+/* A screen or bar that has just appeared ignores taps for a moment (TIMING.screenSettle).
+   A tap on the board arrives twice — as a pointer event, then as the click the browser
+   synthesises after it — and if the first put a screen up, the second would press whatever
+   button had appeared under her finger. Clearing the last pair skipped straight past the
+   win screen that way. */
+.is-settling,
+.is-settling .hud-button {
+  pointer-events: none !important;
+}
+
 #game-container {
   position: fixed;
   inset: 0;
@@ -204,6 +214,19 @@ body {
   border-color: #4a4636;
 }
 
+/* The magnifier is the one bar button that stays on once pressed, so it has to look
+   different while it is on — otherwise the only clue is the glass itself, and she may
+   well have dragged that to the far corner. */
+.hud-button[aria-pressed='true'] {
+  color: var(--felt);
+  background: var(--gold);
+  border-color: #fff0b8;
+}
+
+.hud-button[aria-pressed='true'] .hud-count {
+  color: inherit;
+}
+
 .hud-icon {
   font-size: 1.5em;
 }
@@ -216,6 +239,21 @@ body {
 
 .hud-button[disabled] .hud-count {
   color: inherit;
+}
+
+/* Landscape: six labelled buttons wrap onto a second row on a 960 dp screen, and a
+   two-row bar took 184 px — 31% of the height, which came straight off tile size (the
+   144-tile boards fell from 70 dp to 57). Only the padding between the labels and the
+   button edges is cut, so the labels keep their size and every button keeps its 64 dp
+   minimum (ADR-0002 constraint 4). Portrait already fits, and portrait is how she plays. */
+@media (orientation: landscape) {
+  #hud-buttons {
+    gap: 0.4rem;
+  }
+
+  .hud-button {
+    padding: 0.3rem 0.45rem;
+  }
 }
 
 #stuck-nudge {

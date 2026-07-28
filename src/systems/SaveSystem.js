@@ -107,6 +107,20 @@ export class SaveSystem {
     this.write();
   }
 
+  /**
+   * Whether the magnifying glass is out. Remembered, unlike its position: if she needs it
+   * she needs it every session, and making her find the button again each time would be a
+   * papercut she has no reason to tolerate.
+   */
+  get magnifier() {
+    return this.data.settings.magnifier === true;
+  }
+
+  setMagnifier(on) {
+    this.data.settings.magnifier = Boolean(on);
+    this.write();
+  }
+
   get preferredLayout() {
     return this.data.settings.layoutId || null;
   }

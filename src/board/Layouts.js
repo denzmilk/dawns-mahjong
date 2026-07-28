@@ -1,5 +1,5 @@
 import { SURPRISE } from '../core/Constants.js';
-import { buildStackedBoard, generateShape } from './ShapeGenerator.js';
+import { buildSteppedBoard, generateShape } from './ShapeGenerator.js';
 
 // Board shapes as pure data. No Three.js, no DOM — these are imported directly
 // by tests.
@@ -148,57 +148,31 @@ export function bestOrientation(tiles, viewportAspect, tileAspect) {
   return mismatch(rows, cols) < mismatch(cols, rows) ? 'turned' : 'as-authored';
 }
 
-/**
- * The boards chosen by tile count rather than by shape. Their footprint is built from the
- * screen's proportions at deal time, so they fill a tablet held either way instead of
- * leaving half of it empty. The named shapes (turtle, dragon, cat…) keep their silhouettes.
- */
-export const FITTED_BOARDS = {
-  'quick-24': 24,
-  'garden-36': 36,
-  'steps-48': 48,
-  'easy-72': 72,
-  'pagoda-96': 96,
-};
-
 export function getLayout(id, { rng = Math.random, portrait = false, viewportAspect = null, tileAspect = 1.32 } = {}) {
-  // Built to fit the screen when we know its shape; the authored masks stay as the
-  // fallback, which is what the layout tests assert against.
-  if (FITTED_BOARDS[id] && viewportAspect !== null) {
-    const fitted = buildStackedBoard(FITTED_BOARDS[id], viewportAspect, { tileAspect });
-    if (fitted) {
-      return {
-        ...LAYOUTS[id],
-        tiles: withIds(fitted.tiles),
-        fitted: `${fitted.cols}×${fitted.rows}×${fitted.layers}`,
-      };
-    }
-  }
   const shouldTurn = (tiles) => {
     if (viewportAspect === null) return portrait;
     return bestOrientation(tiles, viewportAspect, tileAspect) === 'turned';
   };
+
   // The surprise board has no fixed shape: it is generated per game, which is the
-  // whole point of it.
-  if (id === SURPRISE.id) {
-    const shape = generateShape(rng);
-    if (!shape) return null;
-    return {
-      id: SURPRISE.id,
-      name: `Surprise (${shape.name})`,
-      shape: shape.name,
-      tiles: withIds(shouldTurn(shape.tiles) ? transposeTiles(shape.tiles) : shape.tiles),
-    };
-  }
-  const layout = LAYOUTS[id];
+  // whole point of it. Only its silhouette is generated, though — the mound is then
+  // built by the same code as every other board, so a surprise board is sized for her
+  // screen exactly like a named one. It used to skip that and came out smallest of all
+  // at 49 dp.
+  const surprise = id === SURPRISE.id ? generateShape(rng) : null;
+  if (id === SURPRISE.id && !surprise) return null;
+
+  const layout = surprise
+    ? { id: SURPRISE.id, name: `Surprise (${surprise.name})`, shape: surprise.name, tiles: surprise.tiles }
+    : LAYOUTS[id];
   if (!layout) return null;
 
-  // Every authored board gets the same treatment: its silhouette re-laid onto a footprint
-  // that matches the screen and stacked upward. The mask is derived from the base layer when
-  // the board wasn't authored from one — the turtle predates the mask format and was
-  // silently missing out, which is why it stayed at 43 dp while the cat reached 80.
+  // Every board gets the same treatment: its silhouette re-laid onto the footprint that
+  // makes its tiles biggest, then stacked into a mound. The mask is derived from the base
+  // layer when the board wasn't authored from one — the turtle predates the mask format
+  // and was silently missing out, which is why it stayed at 43 dp while the cat reached 80.
   if (viewportAspect !== null) {
-    const fitted = buildStackedBoard(layout.tiles.length, viewportAspect, {
+    const fitted = buildSteppedBoard(layout.tiles.length, viewportAspect, {
       silhouette: layout.masks ? layout.masks[0] : baseMaskFrom(layout.tiles),
       tileAspect,
     });
@@ -211,7 +185,7 @@ export function getLayout(id, { rng = Math.random, portrait = false, viewportAsp
     }
   }
 
-  if (!shouldTurn(layout.tiles)) return layout;
+  if (!shouldTurn(layout.tiles)) return { ...layout, tiles: withIds(layout.tiles) };
   return { ...layout, tiles: withIds(transposeTiles(layout.tiles)) };
 }
 
@@ -443,60 +417,14 @@ const SPIDER = [
 // ---------------------------------------------------------------------------
 // The small boards.
 //
-// Dawn played it and said the tiles were too small (2026-07-27). Tile size is set by how
-// many columns the board is wide — the board is fitted to the screen, so 12 columns on
-// her ~960 dp tablet is 68 dp per tile and no amount of tuning changes that. Fewer
-// columns is the only real lever, so these three trade board size for tile size:
+// Dawn played it and said the tiles were too small (2026-07-27), so boards were added
+// below the classic sizes. Chris then played them and cut everything under 48 tiles
+// (2026-07-28): a 24- or 36-tile board is over in a couple of minutes, and she wants a
+// game, not a warm-up. Tile size now comes from the mound the builder chooses rather than
+// from the tile count, so a 48-tile board is no longer the price of big tiles.
 //
-//   6 columns → ~135 dp per tile   (24 tiles, a couple of minutes)
-//   8 columns → ~100 dp            (36 tiles, the new default)
-//  10 columns → ~82 dp             (48 tiles)
-//
-// A 24-tile board also draws on fewer distinct faces, which makes spotting a pair easier
-// as well as tapping it.
+// 48 is the floor and the default.
 // ---------------------------------------------------------------------------
-
-const QUICK = [
-  [
-    '######',
-    '######',
-    '######',
-  ],
-  [
-    '......',
-    '.####.',
-    '......',
-  ],
-  [
-    '......',
-    '..##..',
-    '......',
-  ],
-];
-
-const GARDEN = [
-  [
-    '######',
-    '######',
-    '######',
-    '######',
-    '######',
-  ],
-  [
-    '......',
-    '......',
-    '.####.',
-    '......',
-    '......',
-  ],
-  [
-    '......',
-    '......',
-    '..##..',
-    '......',
-    '......',
-  ],
-];
 
 const STEPS = [
   [
@@ -554,8 +482,6 @@ const PAGODA = [
 
 // Menu order: smallest board (biggest tiles) first, because that is what she asked for.
 export const SHAPE_LAYOUTS = {
-  'quick-24': { name: 'Quick', masks: QUICK },
-  'garden-36': { name: 'Garden', masks: GARDEN },
   'steps-48': { name: 'Steps', masks: STEPS },
   'pagoda-96': { name: 'Pagoda', masks: PAGODA },
   'dragon-144': { name: 'Dragon', masks: DRAGON },

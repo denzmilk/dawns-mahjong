@@ -48,6 +48,12 @@
           <span class="hud-icon">🔀</span>
           <span class="hud-label">Mix up<span id="shuffle-count" class="hud-count">3</span></span>
         </button>
+        <!-- The magnifying glass (ADR-0004). aria-pressed rather than a label that
+             changes, so the button never moves or resizes under her finger. -->
+        <button id="btn-magnifier" class="hud-button" type="button" aria-pressed="false">
+          <span class="hud-icon">🔍</span>
+          <span class="hud-label">Magnifier</span>
+        </button>
         <button id="btn-sound" class="hud-button" type="button">
           <span class="hud-icon" id="sound-icon">🔊</span>
           <span class="hud-label">Sound</span>
@@ -91,6 +97,10 @@
           <div class="legend-row">
             <div class="legend-art legend-icons"><span>💡</span><span>🔀</span></div>
             <p><b>Help me</b> points out a pair. <b>Mix up</b> shuffles the tiles when you run out of moves.</p>
+          </div>
+          <div class="legend-row">
+            <div class="legend-art legend-icons"><span>🔍</span></div>
+            <p><b>Magnifier</b> puts a big glass on the board. Slide it about with your finger, and tap straight through it to play.</p>
           </div>
         </div>
         <div class="button-stack">

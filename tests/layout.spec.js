@@ -16,8 +16,8 @@ test.describe('layout data', () => {
   // Board sizes are chosen for what her tablet can show at a tappable size, not for
   // tradition alone — see the note on dp in 'layout on screen' below.
   const EXPECTED_SIZES = {
-    'quick-24': 24,
-    'garden-36': 36,
+    // 48 is the floor: Chris cut the 24- and 36-tile boards on 2026-07-28 because they
+    // were over before she had settled into them.
     'steps-48': 48,
     'easy-72': 72,
     'pagoda-96': 96,
@@ -151,95 +151,100 @@ test.describe('layout on screen', () => {
   const smallestTile = (state) =>
     state.tiles.reduce((min, t) => Math.min(min, t.screen.w, t.screen.h), Infinity);
 
+  const clippedTiles = (state, viewport) =>
+    state.tiles.filter(
+      (t) =>
+        t.screen.x < 0 ||
+        t.screen.y < 0 ||
+        t.screen.x + t.screen.w > viewport.width ||
+        t.screen.y + t.screen.h > viewport.height
+    );
+
   test('the default board gives her big tiles the way she holds the tablet', async ({ page }) => {
-    // Dawn said the tiles were too small, so the default has to be one of the roomiest
-    // boards — measured upright, because that is how she plays.
+    // Dawn said the tiles were too small, so the default has to be the roomiest board she
+    // can pick — measured upright, because that is how she plays. 48 tiles is the smallest
+    // board there is since Chris cut the two below it (2026-07-28).
     await gotoGame(page, { viewport: HER_TABLET });
     const state = await snapshot(page);
-    expect(state.layout).toBe('garden-36');
+    expect(state.layout).toBe('steps-48');
     expect(smallestTile(state)).toBeGreaterThanOrEqual(85);
   });
 
-  test('the two small boards clear the 64dp minimum however she holds it', async ({ page }) => {
+  // These sweeps deal a board per viewport per layout. Headless Chromium is on software
+  // GL, where dealing 144 tiles takes seconds, so the default per-test timeout is harness
+  // cost rather than anything about the game.
+  const SWEEP_TIMEOUT = 240_000;
+
+  test('every board clears the 64dp touch minimum, however she holds it', async ({ page }) => {
+    test.setTimeout(SWEEP_TIMEOUT);
     // ADR-0002 constraint 4: tile size derives from the touch-target minimum, never the
-    // other way round. These two are the everyday boards, so they have to hold in both
-    // orientations and at either display size.
-    // Upright is the promise, because that is how she holds it. On its side the same board
-    // is stacked differently to suit the shape of the screen and can land a little lower;
-    // 56 dp is still comfortably above Android's 48 dp floor.
-    for (const layout of ['quick-24', 'garden-36']) {
-      for (const viewport of TABLET_VIEWPORTS) {
-        await gotoGame(page, { layout, viewport });
-        const smallest = smallestTile(await snapshot(page));
-        const floor = viewport.height > viewport.width ? 64 : 56;
-        expect(smallest, `${layout} at ${viewport.label}`).toBeGreaterThanOrEqual(floor);
-      }
-    }
-  });
-
-  test('the middle boards stay above the platform floor either way up', async ({ page }) => {
-    // Only the two small boards are promised 64 dp. The 48-, 72- and 96-tile boards trade
-    // tile size for board size by definition, and they pay two further costs: the strip
-    // reserved for the bar (~15%), and her tablet being 960 × 600 dp rather than the
-    // 1280 × 800 a desktop test would use. They land at 48–62 dp — above Android's own
-    // 48 dp minimum, and recorded here rather than dressed up.
-    for (const layout of ['steps-48', 'easy-72', 'pagoda-96']) {
+    // other way round. This used to be a promise the two smallest boards made and the
+    // 144-tile ones broke by 20 dp. Boards are now built into a mound on the footprint
+    // that measures biggest (2026-07-28), which is what let the promise cover all of them.
+    for (const id of FIXED_LAYOUT_IDS) {
       for (const viewport of [HER_TABLET, HER_TABLET_LANDSCAPE]) {
-        await gotoGame(page, { layout, viewport });
-        expect(
-          smallestTile(await snapshot(page)),
-          `${layout} at ${viewport.label}`
-        ).toBeGreaterThanOrEqual(48);
+        await gotoGame(page, { layout: id, seed: 7, viewport });
+        const state = await snapshot(page);
+        expect(state.counts.total, `${id} tile count`).toBe(LAYOUTS[id].tiles.length);
+        expect(smallestTile(state), `${id} at ${viewport.label}`).toBeGreaterThanOrEqual(64);
+        expect(clippedTiles(state, viewport), `${id} clipped at ${viewport.label}`).toHaveLength(0);
       }
     }
   });
 
-  test('the 144-tile boards measure what we think they measure on her tablet', async ({ page }) => {
-    // Recorded honestly rather than flatteringly: 16 tiles across 960 dp is 60 dp before
-    // margins and perspective, so every 144-tile board lands at roughly 44 dp on her
-    // Tab A11+ — under Android's own 48 dp guidance. That is why the 72- and 96-tile
-    // boards are the everyday ones, why tap forgiveness exists, and why a bigger
-    // Android display-size setting is worth knowing about. This test's job is to catch
-    // it getting *worse*, and to catch clipping.
+  test('the 144-tile boards come out close to the smallest board, not half its size', async ({
+    page,
+  }) => {
+    test.setTimeout(SWEEP_TIMEOUT);
+    // Chris's ask on 2026-07-28, in his words: stack the big boards higher so each tile is
+    // "the 48 tile design tile size — or a tiny bit smaller". Before the change they were
+    // 58 dp against the 48-tile board's 91. This is the test that stops them drifting back:
+    // three times the tiles may cost some size, but not a third of it.
+    await gotoGame(page, { layout: 'steps-48', seed: 7, viewport: HER_TABLET });
+    const reference = smallestTile(await snapshot(page));
+
     const boards = FIXED_LAYOUT_IDS.filter((id) => LAYOUTS[id].tiles.length === 144);
     for (const id of boards) {
       await gotoGame(page, { layout: id, seed: 7, viewport: HER_TABLET });
-      const state = await snapshot(page);
-      expect(state.counts.total, `${id} tile count`).toBe(144);
-      // Upright they are tighter still — 16 columns across 600 dp. Opt-in boards.
-      expect(smallestTile(state), `${id} smallest tile`).toBeGreaterThanOrEqual(27);
-      const clipped = state.tiles.filter(
-        (t) =>
-          t.screen.x < 0 ||
-          t.screen.y < 0 ||
-          t.screen.x + t.screen.w > HER_TABLET.width ||
-          t.screen.y + t.screen.h > HER_TABLET.height
-      );
-      expect(clipped, `${id} clipped tiles`).toHaveLength(0);
+      expect(smallestTile(await snapshot(page)), `${id} against steps-48's ${reference} dp`)
+        .toBeGreaterThanOrEqual(reference * 0.8);
+    }
+  });
+
+  test('every board opens with several pairs showing', async ({ page }) => {
+    test.setTimeout(SWEEP_TIMEOUT);
+    // A mound exposes far fewer tiles than a flat board does, so this is the guarantee
+    // that stops the taller stacking turning a board into a wall with one legal move on
+    // it. BOARD.minOpeningPairs is what makes it true, by dealing the first few pairs onto
+    // tiles that are free before anything has been cleared.
+    for (const id of [...FIXED_LAYOUT_IDS, SURPRISE.id]) {
+      for (const viewport of [HER_TABLET, HER_TABLET_LANDSCAPE]) {
+        await gotoGame(page, { layout: id, seed: 7, viewport });
+        const state = await snapshot(page);
+        expect(state.availablePairs, `${id} at ${viewport.label}`).toBeGreaterThanOrEqual(4);
+      }
     }
   });
 
   test('the surprise board is sized for her screen too', async ({ page }) => {
+    // It used to skip the mound builder entirely and came out smallest of all, at 49 dp.
     await gotoGame(page, { layout: SURPRISE.id, seed: 7, viewport: HER_TABLET });
     const state = await snapshot(page);
     expect(state.counts.total).toBe(SURPRISE.tiles);
-    expect(smallestTile(state)).toBeGreaterThanOrEqual(48);
+    expect(smallestTile(state)).toBeGreaterThanOrEqual(64);
   });
 
-  test('turtle-144 stays above the 48dp platform floor, and clears 64 on a large screen', async ({
-    page,
-  }) => {
-    // The classic turtle is 15 tiles wide by 8 deep and cannot reach 64 dp on a
-    // 10–11" tablet — measured 47 dp at 1024×640, 59 at 1280×800. That is the
-    // cost ADR-0002 predicted for keeping the traditional layout, so it is
-    // recorded here rather than left to be discovered on her tablet. 48 dp is
-    // Android's own documented minimum touch target.
-    await gotoGame(page, { layout: 'turtle-144', viewport: { width: 1024, height: 640 } });
-    expect(smallestTile(await snapshot(page))).toBeGreaterThanOrEqual(40);
-
-    await gotoGame(page, { layout: 'turtle-144', viewport: { width: 1600, height: 1000 } });
-    // Same 15% as above, paid to keep every tile out from under the bar.
-    expect(smallestTile(await snapshot(page))).toBeGreaterThanOrEqual(56);
+  test('boards stay inside the screen at every tablet size', async ({ page }) => {
+    test.setTimeout(SWEEP_TIMEOUT);
+    for (const viewport of TABLET_VIEWPORTS) {
+      for (const id of ['steps-48', 'turtle-144']) {
+        await gotoGame(page, { layout: id, seed: 7, viewport });
+        expect(
+          clippedTiles(await snapshot(page), viewport),
+          `${id} clipped at ${viewport.label}`
+        ).toHaveLength(0);
+      }
+    }
   });
 
   test('board frames at tablet viewports', async ({ page }) => {

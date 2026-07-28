@@ -43,13 +43,15 @@ src/
     GameState.js         # single state object + reset()
     Constants.js         # every tuned number, colour, timing, and layout dimension
   board/
-    Layouts.js           # tile position data for easy-72 and turtle-144
+    Layouts.js           # board silhouettes as data; picks the layout for a deal
+    ShapeGenerator.js    # the surprise silhouette, and the stepped mound every board is built into
     BoardGenerator.js    # solvable face assignment (built backwards from a solution)
     BoardRules.js        # free-tile test, match test, available-pair search
     TileMeshes.js        # tile geometry, atlas UVs, per-tile mesh management
   systems/
     InputSystem.js       # pointer → raycast → tile pick; blocks every other gesture
     CameraSystem.js      # fixed tilted camera + responsive framing
+    MagnifierSystem.js   # the draggable magnifying glass (ADR-0004) — a second render pass
     AudioSystem.js       # procedural Web Audio — every sound synthesised
     SaveSystem.js        # versioned localStorage; defensive reads
     InstallSystem.js     # home-screen install prompt + service worker registration
@@ -95,10 +97,11 @@ docs/                    # gameplan, tech, milestones, ADRs, backlog, STATE
 - **Code naming:** camelCase functions/variables, PascalCase classes, kebab-case filenames for assets, PascalCase filenames for modules (matching the retained scaffold).
 - **State:** one `GameState` singleton with `reset()`; systems read it, events mutate it. Modules never import each other — all cross-module traffic goes through `EventBus` with `domain:action` event names declared in the `Events` map.
 - **Constants:** every tuned number, colour, duration, and layout dimension lives in `src/core/Constants.js`. Zero magic numbers in game logic — this is the house rule that keeps "it feels wrong" bugs findable.
-- **Rules are pure functions.** `BoardRules.js` and `BoardGenerator.js` take state and return values — no Three.js imports, no DOM. They are the most correctness-critical code in the project and must be testable without a renderer.
+- **Rules are pure functions.** `BoardRules.js`, `BoardGenerator.js` and `ShapeGenerator.js` take state and return values — no Three.js imports, no DOM. They are the most correctness-critical code in the project and must be testable without a renderer. (`ShapeGenerator.js` reads `Constants.js`, which is data, so it stays pure.)
+- **Boards are built for the screen, at deal time.** `buildSteppedBoard` searches footprints, scores each by the tile size it would give, and stacks the winner into a stepped mound. Tile size is set by the footprint, not the tile count — which is why board sizing is settled with `npm run measure:boards` and never by eye.
 - **Test hooks:** `window.render_game_to_text()` returns a JSON snapshot (board state, free tiles, selection, assists remaining, screen); `window.advanceTime(seconds)` steps animations deterministically. Both are how tests and agents inspect the game without screenshots.
 - **Render on demand.** The render loop only runs continuously while something is animating; a static board renders one frame and stops. This is a battery decision for a tablet that will sit on the arm of a chair mid-game.
-- **Touch is the only input.** A single tap is the entire control scheme. Pinch-zoom, double-tap-zoom, long-press context menus, text selection, and overscroll are all suppressed in CSS/JS — see ADR-0002.
+- **Touch is the only input.** A single tap is the entire control scheme. Pinch-zoom, double-tap-zoom, long-press context menus, text selection, and overscroll are all suppressed in CSS/JS — see ADR-0002. The one drag in the game is the magnifying glass (ADR-0004); `InputSystem` decides which of the two a press is once, on pointer-down, and never revisits it.
 
 ## Testing
 

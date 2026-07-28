@@ -69,7 +69,11 @@ export const Events = {
   UI_HOME: 'ui:home',
   UI_SOUND_TOGGLED: 'ui:sound-toggled',
   UI_LAYOUT_CHOSEN: 'ui:layout-chosen',
+  UI_MAGNIFIER_TOGGLED: 'ui:magnifier-toggled',
   UI_INSTALL: 'ui:install',
+  // magnifier:* (ADR-0004)
+  MAGNIFIER_TOGGLED: 'magnifier:toggled',
+  MAGNIFIER_MOVED: 'magnifier:moved',
   // screen:*
   SCREEN_CHANGED: 'screen:changed',
   // fx:*

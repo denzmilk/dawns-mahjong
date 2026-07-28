@@ -43,10 +43,15 @@ When an entry is **rejected**, wrap the title in `~~strikethrough~~` and add a o
   - Rough size: S · Rough value: L
   - Notes: Promoted the same day — Chris chose "keep the turtle, add tap forgiveness" over hiding or dropping it, which makes this load-bearing rather than polish. Picking is an exact raycast today; the margin picks the nearest free tile within ~12 dp, and only when exactly one candidate qualifies.
 
-- [ ] **Keep tiles out from under the bar's buttons** — a few tiles can sit beneath the in-game buttons on some board and orientation combinations, where they cannot be tapped.
+- [x] **Keep tiles out from under the bar's buttons** — a few tiles can sit beneath the in-game buttons on some board and orientation combinations, where they cannot be tapped. → milestone 12-bigger-tiles-and-a-magnifying-glass.md
   - Source: 2026-07-27, portrait support
   - Rough size: M · Rough value: L
-  - Notes: Three approaches were tried and all cost more tile size than the problem is worth: narrowing the vertical field of view to the free strip (halved tile size), a fixed world-unit reservation (3.6 units is over half of a 6-column board), and a measured reservation (still doubled, because reserving on one side while the camera centres on the board forces the frustum to grow symmetrically). **The fix is to reserve the strip AND shift the look-at target by half of it in the same pass**, so the growth is one-sided — needs care because the fit currently runs before the target is final. Until then the worst case is a couple of unreachable tiles, and *Mix up* frees them.
+  - Notes: Three approaches were tried and all cost more tile size than the problem is worth: narrowing the vertical field of view to the free strip (halved tile size), a fixed world-unit reservation (3.6 units is over half of a 6-column board), and a measured reservation (still doubled, because reserving on one side while the camera centres on the board forces the frustum to grow symmetrically). **Fixed on 2026-07-28, and none of those three was the answer**: moving the camera at all is what makes the frustum grow on both sides. The board is fitted to the free strip and then slid onto it by shearing the *projection* (`camera.setViewOffset`), which changes where the fitted board lands without changing what the camera sees. Costs nothing, and it also removed two tiles that sat a pixel or two off the left edge on three of the 144-tile boards.
+
+- [ ] **Re-deal the board when the tablet is turned** — a board dealt upright keeps its upright mound when the tablet is turned on its side, so its tiles measure smaller than a fresh deal would.
+  - Source: 2026-07-28, milestone 12 live-iterate (steps-48 measures 90 dp upright, 59 dp after rotating mid-game)
+  - Rough size: M · Rough value: S
+  - Notes: Deliberately not done. Re-dealing would replace the board she is playing because she moved the tablet, which is worse than smaller tiles. A *relayout* — same tiles, same faces, same cleared set, new footprint — is the real version of this and is much harder: the mound's shape changes, so there is no mapping from old positions to new that preserves which tiles are free. Only worth attempting if she turns out to play both ways up in one sitting.
 
 ## Polish & juice
 
@@ -83,9 +88,9 @@ When an entry is **rejected**, wrap the title in `~~strikethrough~~` and add a o
   - Notes: Cropping to Dawn and Elvis from the shoulders up removes almost all of it, and a soft vignette or blur handles the rest. Worth doing before milestone 04 ships, because garbled text is exactly the kind of thing that reads as "the game is broken" to a non-technical player.
 
 - [ ] **Higher-resolution tile art** — swap the preview sheet for the full-resolution pack if Chris has it.
-  - Source: 2026-07-27 planning session
-  - Rough size: S · Rough value: M
-  - Notes: Faces are ~90×110 px in the preview sheet. Milestone 03's measuring script makes a swap a one-command re-measure. Only needed if faces read soft on the tablet.
+  - Source: 2026-07-27 planning session; **value raised on 2026-07-28** by the magnifying glass (ADR-0004)
+  - Rough size: S · Rough value: L
+  - Notes: Faces are ~79×99 px in the preview sheet. Milestone 03's measuring script makes a swap a one-command re-measure. It used to matter only if faces read soft at tile size; the magnifier now draws them at 2×, where the source resolution is visibly the limit — the lens is bigger but softer than the board around it. This is the one change that would make the glass genuinely sharp.
 
 - [ ] **Survive WebGL context loss** — listen for `webglcontextlost` / `webglcontextrestored` and rebuild the scene instead of leaving a blank canvas.
   - Source: 2026-07-27, noticed while verifying the production build (headless Chromium raised `CONTEXT_LOST_WEBGL` intermittently)
@@ -98,6 +103,11 @@ When an entry is **rejected**, wrap the title in `~~strikethrough~~` and add a o
   - Notes: Do not do this before measuring on the real device. Complicates per-tile animation considerably; see `threejs-perf` guidance.
 
 ## Tooling & QA
+
+- [ ] **A drop shadow under the magnifying glass** — the lens reads as a flat disc rather than a piece of glass held over the board.
+  - Source: 2026-07-28, milestone 12 visual check (`output/iterate/magnifier.png`)
+  - Rough size: S · Rough value: S
+  - Notes: A soft dark ring just outside the gold rim in the magnifier's overlay scene would do it. Purely cosmetic — it is unmistakably a magnifying glass already, handle and all.
 
 - [ ] **Dev panel for layout and animation tuning** — sliders for camera tilt, tile spacing, and a way to trigger each of the eight celebrations on demand.
   - Source: 2026-07-27 planning session

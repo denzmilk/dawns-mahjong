@@ -246,8 +246,9 @@ test.describe('boards and the legend', () => {
   test('every board is offered, and picking one actually starts it', async ({ page }) => {
     await gotoFront(page);
     const buttons = page.locator('#board-buttons .choice-button');
-    // Eleven fixed boards plus the surprise board.
-    expect(await buttons.count()).toBe(12);
+    // Nine fixed boards plus the surprise board. It was twelve until Chris cut everything
+    // under 48 tiles (2026-07-28).
+    expect(await buttons.count()).toBe(10);
 
     // The surprise board is the one that used to silently fall back to the easy board,
     // because it has no entry in LAYOUTS — it is generated per game.

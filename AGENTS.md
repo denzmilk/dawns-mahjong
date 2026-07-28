@@ -35,7 +35,7 @@ These docs are the agreed state of the project. Read them at session start; do *
 - `docs/gameplan.md` — game definition (loop, rules, layouts, assists, art, anti-goals).
 - `docs/tech.md` — stack, tooling, asset pipeline, conventions.
 - `docs/milestones/` — feature work breakdown with acceptance criteria.
-- `docs/architectural-decisions/` — locked decisions (0001 engine/stack, 0002 accessibility constraints, 0003 no physics).
+- `docs/architectural-decisions/` — locked decisions (0001 engine/stack, 0002 accessibility constraints, 0003 no physics, 0004 the magnifying glass).
 - `docs/backlog.md` — every deferred idea. Nothing the user mentions gets silently dropped.
 
 ## House rules (Chris's cross-repo conventions — non-negotiable)
@@ -51,7 +51,8 @@ These docs are the agreed state of the project. Read them at session start; do *
 
 Any feature violating one of these is rejected or redesigned. Exceptions need a superseding ADR.
 
-- **A single tap is the entire control scheme.** No drag, swipe, pinch, double-tap, long-press, or multi-touch. The camera is fixed and never moves in response to input. Browser gestures (pinch-zoom, double-tap-zoom, text selection, overscroll, context menu) are actively suppressed.
+- **A single tap is the entire control scheme.** No drag, swipe, pinch, double-tap, long-press, or multi-touch. The camera is fixed and never moves in response to input. Browser gestures (pinch-zoom, double-tap-zoom, text selection, overscroll, context menu) are actively suppressed. **One exception, ADR-0004: the magnifying glass may be dragged** — `InputSystem` asks once on pointer-down whether the press landed on the glass, and everywhere else the tap-only rules apply unchanged. Do not widen it; the next feature that wants a gesture needs its own ADR.
+- **Minimum 64 dp per tile, on every board, both ways up.** Boards are built at deal time into a stepped mound on the footprint that measures biggest (`buildSteppedBoard`), so this is a promise the code keeps rather than a hope. Prove any change to it with `npm run measure:boards`, never by eye.
 - **Playability is visible without interaction.** Free tiles bright, blocked tiles dimmed. Tapping a blocked tile does nothing at all.
 - **Selection is the loudest thing on screen** — lift, thick gold outline, slow pulse, and glow, all at once. Redundant on purpose.
 - **Minimum 64 dp touch targets, 24 px body text, 72 px+ greeting.** Tile size derives from these minimums, never the reverse. Android reports CSS pixels as dp, so a 10.9" tablet is ~1024×640 — test at that size, not at desktop resolutions.
@@ -79,6 +80,7 @@ Any feature violating one of these is rejected or redesigned. Exceptions need a 
 - **Tests:** `npx playwright test` (auto-starts the dev server, reuses a running one). Tablet viewports, not desktop. Headless WebGL screenshots composite black under SwiftShader — assert via canvas pixel readback, not screenshots.
 - **Build:** `npm run build` · **Preview:** `npm run preview`
 - **Asset sync:** `npm run assets:sync` — normalises Chris's drops in `Assets/` into `public/assets/elvis/`
+- **Board sizing:** `npm run measure:boards` — tile size, footprint, layers and opening pairs for every board, both ways up, on her tablet's viewport. Every sizing number in the docs came from it; settle sizing arguments with it. `npm run capture:boards -- <board>` saves the render to `output/iterate/`. Both need the dev server up.
 - **Lint / format:** n/a (deliberate — see `docs/tech.md`)
 
 ## Live iterate (after every code change)
@@ -124,4 +126,4 @@ If the user pushes back on documentation overhead, downgrade — do **not** skip
 
 ## Last regenerated
 
-2026-07-27 by Claude — regenerated for the *Dawn's Mahjong* pivot (previous game: *Jimothy's Big Day Out*, now at `denzmilk/jimothys-big-day-out`). Regenerate when the engine, primary commands, or architecture rules change. The doc-drift audit will flag staleness.
+2026-07-28 by Claude — amended for milestone 12: ADR-0004 (the magnifying glass narrows the no-drag rule), the 64 dp promise now covering every board, and `npm run measure:boards`. Last full regeneration 2026-07-27 for the *Dawn's Mahjong* pivot (previous game: *Jimothy's Big Day Out*, now at `denzmilk/jimothys-big-day-out`). Regenerate when the engine, primary commands, or architecture rules change. The doc-drift audit will flag staleness.

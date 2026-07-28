@@ -8,7 +8,7 @@
 // boards that dead-end through no fault of the player, which for this player is
 // indistinguishable from the game being broken.
 
-import { ELVIS_FACES, FACES } from '../core/Constants.js';
+import { BOARD, ELVIS_FACES, FACES } from '../core/Constants.js';
 import { buildIndex, isElvisFace, isFree } from './BoardRules.js';
 
 const SUIT_FACES = FACES.filter((f) => !isElvisFace(f));
@@ -66,21 +66,36 @@ export function buildFacePairs(count, rng) {
 /**
  * Assigns face pairs to positions by simulating a complete play-through.
  * Returns null if it paints itself into a corner, so the caller can retry.
+ *
+ * `openingPairs` is what keeps a deep board from opening as a wall. Boards build upward
+ * now (2026-07-28), and a mound exposes far fewer tiles than a flat board, so a deal left
+ * entirely to chance could put every early match behind another — she would be staring at
+ * 144 tiles with two legal moves. Placing the first few pairs on tiles that are free
+ * *before anything has been cleared* guarantees that many matches are visible from the
+ * off, at no cost to solvability: they are still assigned by playing the board.
  */
-function assignPairs(positions, pairs, rng) {
+function assignPairs(positions, pairs, rng, openingPairs = 0) {
   const working = positions.map((p) => ({ ...p, cleared: false }));
   const byId = new Map(working.map((t) => [t.id, t]));
   const index = buildIndex(working);
   const faces = new Map();
   const solution = [];
+  const openAtDeal = new Set(
+    working.filter((t) => isFree(t, byId, index)).map((t) => t.id)
+  );
 
   for (const [faceA, faceB] of pairs) {
     const free = working.filter((t) => !t.cleared && isFree(t, byId, index));
     if (free.length < 2) return null;
 
-    const first = free[Math.floor(rng() * free.length)];
+    // Fall back to the whole free set once the tiles that started free are used up —
+    // a guarantee that can't be met is better broken than turned into a failed board.
+    const opening = solution.length < openingPairs ? free.filter((t) => openAtDeal.has(t.id)) : [];
+    const pool = opening.length >= 2 ? opening : free;
+
+    const first = pool[Math.floor(rng() * pool.length)];
     let second = first;
-    while (second === first) second = free[Math.floor(rng() * free.length)];
+    while (second === first) second = pool[Math.floor(rng() * pool.length)];
 
     faces.set(first.id, faceA);
     faces.set(second.id, faceB);
@@ -101,7 +116,12 @@ export function generateBoard(layout, rng = Math.random) {
   const positions = layout.tiles.map((t) => ({ id: t.id, x: t.x, y: t.y, layer: t.layer }));
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const assigned = assignPairs(positions, buildFacePairs(positions.length, rng), rng);
+    const assigned = assignPairs(
+      positions,
+      buildFacePairs(positions.length, rng),
+      rng,
+      BOARD.minOpeningPairs
+    );
     if (!assigned) continue;
     return {
       tiles: positions.map((p) => ({ ...p, face: assigned.faces.get(p.id), cleared: false })),
@@ -123,7 +143,14 @@ export function shuffleRemaining(tiles, rng = Math.random) {
   const positions = remaining.map((t) => ({ id: t.id, x: t.x, y: t.y, layer: t.layer }));
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const assigned = assignPairs(positions, shuffleInPlace(pairs.slice(), rng), rng);
+    // A mix up she has to spend a hint on straight afterwards is not a rescue, so the
+    // reshuffled board gets the same opening guarantee a fresh one does.
+    const assigned = assignPairs(
+      positions,
+      shuffleInPlace(pairs.slice(), rng),
+      rng,
+      BOARD.minOpeningPairs
+    );
     if (!assigned) continue;
     return {
       tiles: tiles.map((t) =>

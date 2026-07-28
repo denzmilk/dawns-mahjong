@@ -40,9 +40,16 @@ test('tapping the middle of a tile picks that tile', async ({ page }) => {
   await gotoGame(page, { layout: 'easy-72' });
   const state = await snapshot(page);
 
-  // Top-layer tiles are never covered, so the centre of each must resolve to
+  // Tiles on the top layer are never covered, so the centre of each must resolve to
   // itself. This is the accuracy guarantee milestone 02's input builds on.
-  const top = state.tiles.filter((t) => t.layer === 1).slice(0, 10);
+  //
+  // Read from the board rather than hardcoded: boards are stacked into a mound sized for
+  // the screen, so how many layers deep easy-72 comes out depends on the viewport. Pinning
+  // this to layer 1 quietly turned it into a test that covered tiles pick themselves,
+  // which they must not.
+  const topLayer = Math.max(...state.tiles.map((t) => t.layer));
+  const top = state.tiles.filter((t) => t.layer === topLayer).slice(0, 10);
+  expect(top.length).toBeGreaterThan(0);
   for (const tile of top) {
     const hit = await pickAt(page, Math.round(tile.screen.cx), Math.round(tile.screen.cy));
     expect(hit, `centre of tile ${tile.id} should pick itself`).toBe(tile.id);

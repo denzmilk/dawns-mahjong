@@ -1,4 +1,4 @@
-import { SURPRISE } from '../core/Constants.js';
+import { BOARD, CAMERA, SURPRISE, TILE } from '../core/Constants.js';
 
 // The surprise board: a different shape every time, so there is always another one to
 // play. Stars, rings, hearts, crosses, flowers, blobs — rasterised onto the same
@@ -207,209 +207,176 @@ export function generateShape(rng = Math.random) {
 }
 
 /**
- * A board built to fit the screen it will be played on.
+ * Builds a board as a stepped mound, on the footprint that makes its tiles biggest.
  *
- * Chris's point (2026-07-28): a board authored 12 wide by 4 deep wastes most of a portrait
- * screen, and turning it makes a 4 × 12 ribbon that wastes it the other way. Neither uses
- * the space, and tile size is set by how much space is used. So rather than turning a
- * fixed shape, the footprint is *chosen* from the screen's own proportions, then stacked
- * by the same erosion the surprise board uses — which is what guarantees every tile above
- * the base has one beneath it.
+ * Two things drive this, both from Chris (2026-07-28). First: tile size comes from the
+ * FOOTPRINT, not the tile count — 144 tiles laid flat across a portrait screen measure
+ * 58 dp, and the same 144 gathered into a mound measure far more. Second: the 144-tile
+ * boards should feel close to the 48-tile one, which means shrinking their footprint until
+ * they do.
  *
- * Traditional silhouettes are given up here on purpose: he asked for all the screen, and a
- * turtle cannot be both a turtle and the shape of a tablet held upright.
+ * So the footprint is searched rather than assumed. Every candidate is built and scored by
+ * how big its tiles would come out (`tileScale`), and the best one wins. Smaller is *not*
+ * always better: a tall stack leans toward the camera and eats screen height, so past a
+ * point the tower costs more than the narrower footprint saved. The search finds that point
+ * instead of guessing at it.
+ *
+ * The stack itself steps inward — the silhouette repeated a few layers, then eroded, then
+ * repeated again — for two reasons. Support is automatic, because each level fits inside
+ * the one below. And every step leaves a ledge of exposed tiles, which is what keeps a deep
+ * board playable: a straight-sided tower only ever offers the two ends of its top row,
+ * however many tiles are underneath.
  */
-export function buildFittedBoard(count, viewportAspect, tileAspect = 1.32) {
+export function buildSteppedBoard(count, viewportAspect, {
+  silhouette = null,
+  tileAspect = TILE.depth / TILE.width,
+  maxLayers = BOARD.maxLayers,
+  minPlayable = BOARD.minPlayable,
+} = {}) {
   if (count % 2 !== 0) throw new Error(`a board needs an even tile count, got ${count}`);
 
-  // Tiles are taller than they are wide, so a square-looking board needs more columns
-  // than rows: this is the column:row ratio that makes the board's shape match the
-  // screen's.
-  const ratio = Math.max(0.25, viewportAspect * tileAspect);
+  // Rows and columns are searched independently rather than pinned to the screen's own
+  // proportions. That was the mistake in the version before this one: a footprint shaped
+  // like the screen leaves no room for the stack, and the stack reaches UP the screen. The
+  // best footprint is always wider and shallower than the screen, by exactly the height
+  // the mound is going to claim — and the only way to know that is to try both.
+  let best = null;
 
-  // Start from a footprint big enough to hold most of the tiles on the base, then grow it
-  // until the whole stack can hold the full count.
-  for (let base = Math.max(6, Math.round(count * 0.55)); base <= count * 2; base += 2) {
-    const rows = Math.max(2, Math.round(Math.sqrt(base / ratio)));
-    const cols = Math.max(2, Math.round(rows * ratio));
+  for (let rows = 2; rows <= MAX_ROWS; rows++) {
+    for (let cols = 2; cols <= MAX_COLS; cols++) {
+      // A footprint with far more cells than the board has tiles is only worth building
+      // for a sparse silhouette, where most of those cells hold nothing.
+      if (rows * cols > count * (silhouette ? 2 : 1)) break;
 
-    const grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 1));
-    const layers = [grid];
-    while (layers.length < SURPRISE.maxLayers) {
-      const next = erode(layers[layers.length - 1]);
-      if (countGrid(next) === 0) break;
-      layers.push(next);
+      const grid = silhouette ? resampleSilhouette(silhouette, rows, cols) : solidFootprint(rows, cols);
+      const built = stackInward(grid, count, maxLayers);
+      if (!built) continue;
+      // However big the tiles, a board she can't get started on is not a board.
+      if (countPlayable(built.tiles) < minPlayable) continue;
+
+      const scale = tileScale(built, viewportAspect, tileAspect);
+      if (!best || scale > best.scale) best = { ...built, scale };
     }
-    const total = layers.reduce((sum, layer) => sum + countGrid(layer), 0);
-    if (total < count) continue;
-
-    const trimmed = trimTo(layers, count);
-    const tiles = [];
-    trimmed.forEach((layer, index) => {
-      layer.forEach((line, row) => {
-        line.forEach((cell, col) => {
-          if (cell) tiles.push({ x: col * 2, y: row * 2, layer: index });
-        });
-      });
-    });
-    if (tiles.length === count) return { cols, rows, tiles };
   }
-  return null;
+  return best;
+}
+
+// Bounds on the search. Wide enough to cover the widest authored silhouette laid flat,
+// small enough that the whole search is a few hundred cheap builds — it runs once, when a
+// board is dealt.
+const MAX_ROWS = 14;
+const MAX_COLS = 18;
+
+/**
+ * How big one tile would come out, as a fraction of screen height, if this board were
+ * fitted to a screen of the given aspect. Deliberately approximate — it ignores
+ * perspective, and the real framing is measured from the tiles themselves in
+ * CameraSystem — but it ranks candidates correctly, which is all it is for.
+ *
+ * The height term is the part that is easy to forget: at the fixed tilt a stack does not
+ * only rise, it also reaches up the screen, so layers cost vertical space just as rows do.
+ */
+function tileScale({ cols, rows, layers }, viewportAspect, tileAspect) {
+  const tilt = (CAMERA.tiltDegrees * Math.PI) / 180;
+  const across = cols;
+  const down =
+    rows * tileAspect * Math.cos(tilt) + layers * (TILE.thickness / TILE.width) * Math.sin(tilt);
+  // Screen height is 1 and screen width is its aspect, so both terms are in tile widths.
+  return Math.min(viewportAspect / across, BOARD.usableHeight / down);
 }
 
 /**
- * Re-lays an authored silhouette onto a footprint that matches the screen.
+ * Stacks a footprint into a mound of exactly `count` tiles, stepping inward as it rises.
+ * Returns null if it cannot be done inside `maxLayers`.
+ */
+function stackInward(grid, count, maxLayers) {
+  // Each level is an erosion of the one below — a cell survives only if it and all four
+  // of its neighbours did — so a level always fits inside the level under it.
+  const ladder = [grid];
+  for (;;) {
+    const next = erode(ladder[ladder.length - 1]);
+    if (countGrid(next) === 0) break;
+    ladder.push(next);
+  }
+
+  if (ladder.length > maxLayers) return null;
+
+  // One layer per level is the classic single-erosion pyramid, and it is what puts a ledge
+  // of tappable tiles at every step. It rarely holds a whole board, so the remainder goes
+  // on the BASE: the widest level holds the most tiles per layer, which is the same as
+  // saying it is the cheapest place to buy capacity in screen height.
+  const sizes = ladder.map(countGrid);
+  const heights = sizes.map(() => 1);
+  let capacity = sizes.reduce((sum, size) => sum + size, 0);
+  while (capacity < count) {
+    if (heights.reduce((sum, h) => sum + h, 0) >= maxLayers) return null;
+    heights[0] += 1;
+    capacity += sizes[0];
+  }
+
+  const layers = [];
+  ladder.forEach((level, index) => {
+    for (let i = 0; i < heights[index]; i++) layers.push(level.map((line) => [...line]));
+  });
+
+  const trimmed = trimTo(layers, count);
+  if (trimmed.length > maxLayers) return null;
+
+  const tiles = [];
+  trimmed.forEach((layer, index) => {
+    layer.forEach((line, row) => {
+      line.forEach((cell, col) => {
+        if (cell) tiles.push({ x: col * 2, y: row * 2, layer: index });
+      });
+    });
+  });
+  if (tiles.length !== count) return null;
+
+  // A silhouette can leave empty rows or columns around its edge; shift them off so the
+  // board's own extents are what the camera ends up framing.
+  const minX = Math.min(...tiles.map((t) => t.x));
+  const minY = Math.min(...tiles.map((t) => t.y));
+  for (const t of tiles) {
+    t.x -= minX;
+    t.y -= minY;
+  }
+  return {
+    cols: Math.max(...tiles.map((t) => t.x)) / 2 + 1,
+    rows: Math.max(...tiles.map((t) => t.y)) / 2 + 1,
+    layers: trimmed.length,
+    tiles,
+  };
+}
+
+const solidFootprint = (rows, cols) =>
+  Array.from({ length: rows }, () => Array.from({ length: cols }, () => 1));
+
+/**
+ * Nearest-neighbour resample of an authored silhouette onto a different grid.
  *
  * The turtle, dragon, cat, fortress, crab and spider are drawn 15–17 columns wide, which
- * is a landscape shape: upright they shrink to 6 mm tiles. Rather than abandoning the
- * silhouettes, the base mask is resampled into a grid whose proportions come from the
- * screen, then stacked by erosion and trimmed to the count. A cat re-laid onto a tall grid
- * is still recognisably a cat — it is simply a taller cat.
+ * is a landscape shape — upright they shrink to 6 mm tiles. Rather than abandoning the
+ * silhouettes, each is re-laid onto whatever footprint measures best. A cat squeezed onto
+ * a 6 × 7 grid is still recognisably a cat; it is simply a stockier cat.
  */
-export function fitShapeToScreen(baseMask, count, viewportAspect, tileAspect = 1.32) {
-  const srcRows = baseMask.length;
-  const srcCols = baseMask[0].length;
-  const filled = baseMask.reduce((sum, line) => sum + [...line].filter((c) => c === '#').length, 0);
-  const density = filled / (srcRows * srcCols);
-  const ratio = Math.max(0.25, viewportAspect * tileAspect);
-
-  // Grow the footprint until the silhouette, stacked, can hold the whole count.
-  for (let cells = Math.max(12, Math.round(count / Math.max(0.35, density))); cells <= count * 6; cells += 4) {
-    const rows = Math.max(3, Math.round(Math.sqrt(cells / ratio)));
-    const cols = Math.max(3, Math.round(rows * ratio));
-
-    // Nearest-neighbour resample of the authored silhouette into the new grid.
-    const grid = [];
-    for (let r = 0; r < rows; r++) {
-      const sr = Math.min(srcRows - 1, Math.floor(((r + 0.5) / rows) * srcRows));
-      const line = [];
-      for (let c = 0; c < cols; c++) {
-        const sc = Math.min(srcCols - 1, Math.floor(((c + 0.5) / cols) * srcCols));
-        line.push(baseMask[sr][sc] === '#' ? 1 : 0);
-      }
-      grid.push(line);
-    }
-
-    const layers = [grid];
-    while (layers.length < SURPRISE.maxLayers) {
-      const next = erode(layers[layers.length - 1]);
-      if (countGrid(next) === 0) break;
-      layers.push(next);
-    }
-    const total = layers.reduce((sum, layer) => sum + countGrid(layer), 0);
-    if (total < count) continue;
-
-    const trimmed = trimTo(layers, count);
-    const tiles = [];
-    trimmed.forEach((layer, index) => {
-      layer.forEach((line, row) => {
-        line.forEach((cell, col) => {
-          if (cell) tiles.push({ x: col * 2, y: row * 2, layer: index });
-        });
-      });
-    });
-    if (tiles.length === count) return { cols, rows, tiles };
-  }
-  return null;
-}
-
-/**
- * Builds UP rather than out.
- *
- * Chris asked why more tiles means a wider board rather than a taller stack (2026-07-28),
- * and the measurements settled it: 144 tiles spread across a portrait screen gives 43 dp
- * tiles, while the same 144 stacked four deep on a 6 × 6 footprint gives 103 dp — two and a
- * half times the size, for the same game. Tile size is set by the FOOTPRINT, not the count,
- * so height is free.
- *
- * The previous approach eroded each layer inside the one below, which caps how much a small
- * footprint can hold and — once trimmed — collapsed some boards to a single flat layer.
- * This stacks the same silhouette repeatedly instead: support is automatic (every tile has
- * one directly beneath it), and only the top layer is partial, filled centre-outwards so it
- * reads as deliberate.
- *
- * The cost is choice: a deep stack exposes fewer tiles at once. `minPlayable` is what stops
- * that going too far.
- */
-export function buildStackedBoard(count, viewportAspect, {
-  silhouette = null,
-  tileAspect = 1.32,
-  maxLayers = 4,
-  // A deep stack exposes fewer tiles, and fewer exposed tiles means fewer matching pairs
-  // on offer. 14 keeps a real choice in front of her: at 10 some boards opened with only
-  // two pairs available, which is a game spent pressing Mix up.
-  minPlayable = 14,
-} = {}) {
-  const ratio = Math.max(0.25, viewportAspect * tileAspect);
-
-  // Deepest stack first: fewest footprint cells, so the biggest tiles.
-  for (let layers = Math.min(maxLayers, Math.floor(count / 6)); layers >= 1; layers--) {
-    const needed = Math.ceil(count / layers);
-    const grid = silhouette
-      ? resampleSilhouette(silhouette, needed, ratio)
-      : solidFootprint(needed, ratio);
-    if (!grid) continue;
-
-    const cells = [];
-    grid.forEach((line, row) => line.forEach((cell, col) => cell && cells.push({ row, col })));
-    if (cells.length < needed) continue;
-
-    // Full layers, then a partial top filled from the middle out.
-    const centreRow = (grid.length - 1) / 2;
-    const centreCol = (grid[0].length - 1) / 2;
-    const inward = [...cells].sort(
-      (a, b) =>
-        Math.hypot(a.row - centreRow, (a.col - centreCol) / 2) -
-        Math.hypot(b.row - centreRow, (b.col - centreCol) / 2)
-    );
-
-    const tiles = [];
-    for (let layer = 0; layer < layers && tiles.length < count; layer++) {
-      const remaining = count - tiles.length;
-      const take = remaining >= cells.length ? cells : inward.slice(0, remaining);
-      for (const cell of take) tiles.push({ x: cell.col * 2, y: cell.row * 2, layer });
-    }
-    if (tiles.length !== count) continue;
-
-    // A stack this deep must still leave her something to tap.
-    if (countPlayable(tiles) < minPlayable) continue;
-    return { cols: grid[0].length, rows: grid.length, layers, tiles };
-  }
-  return null;
-}
-
-function solidFootprint(cells, ratio) {
-  const rows = Math.max(2, Math.round(Math.sqrt(cells / ratio)));
-  const cols = Math.max(2, Math.ceil(cells / rows));
-  return Array.from({ length: rows }, () => Array.from({ length: cols }, () => 1));
-}
-
-/** Scales an authored silhouette up until it holds at least `cells` tiles. */
-function resampleSilhouette(mask, cells, ratio) {
+function resampleSilhouette(mask, rows, cols) {
   const srcRows = mask.length;
   const srcCols = mask[0].length;
-  for (let rows = 3; rows <= 24; rows++) {
-    const cols = Math.max(3, Math.round(rows * ratio));
-    const grid = [];
-    let filled = 0;
-    for (let r = 0; r < rows; r++) {
-      const sr = Math.min(srcRows - 1, Math.floor(((r + 0.5) / rows) * srcRows));
-      const line = [];
-      for (let c = 0; c < cols; c++) {
-        const sc = Math.min(srcCols - 1, Math.floor(((c + 0.5) / cols) * srcCols));
-        const on = mask[sr][sc] === '#' ? 1 : 0;
-        filled += on;
-        line.push(on);
-      }
-      grid.push(line);
+  const grid = [];
+  for (let r = 0; r < rows; r++) {
+    const sr = Math.min(srcRows - 1, Math.floor(((r + 0.5) / rows) * srcRows));
+    const line = [];
+    for (let c = 0; c < cols; c++) {
+      const sc = Math.min(srcCols - 1, Math.floor(((c + 0.5) / cols) * srcCols));
+      line.push(mask[sr][sc] === '#' ? 1 : 0);
     }
-    if (filled >= cells) return grid;
+    grid.push(line);
   }
-  return null;
+  return grid;
 }
 
 /** Tiles with nothing on top and a clear left or right edge — what she can tap right now. */
-function countPlayable(tiles) {
+export function countPlayable(tiles) {
   const key = (x, y, layer) => `${x},${y},${layer}`;
   const at = new Set(tiles.map((t) => key(t.x, t.y, t.layer)));
   let playable = 0;

@@ -5,6 +5,7 @@ import { SURPRISE } from '../core/Constants.js';
 // needs a stand-in to label its button with.
 const SURPRISE_BOARD = { id: SURPRISE.id, name: 'Surprise', tiles: { length: SURPRISE.tiles } };
 import { Events, eventBus } from '../core/EventBus.js';
+import { TIMING } from '../core/Constants.js';
 import { gameState } from '../core/GameState.js';
 import { borderBackgroundCss } from '../assets/TileSheet.js';
 
@@ -28,6 +29,7 @@ export class Ui {
   constructor({ playerName = 'Dawn' } = {}) {
     this.playerName = playerName;
     this.chosenLayout = gameState.layoutId;
+    this.settleTimers = new Map();
     this.el = {
       frame: document.querySelectorAll('.frame-edge'),
       hud: document.getElementById('hud'),
@@ -38,6 +40,7 @@ export class Ui {
       shuffleCount: document.getElementById('shuffle-count'),
       sound: document.getElementById('btn-sound'),
       soundIcon: document.getElementById('sound-icon'),
+      magnifier: document.getElementById('btn-magnifier'),
       home: document.getElementById('btn-home'),
       legendButton: document.getElementById('btn-legend'),
       legend: document.getElementById('legend'),
@@ -196,6 +199,7 @@ export class Ui {
     this.el.hint.addEventListener('click', () => eventBus.emit(Events.UI_HINT, {}));
     this.el.shuffle.addEventListener('click', () => eventBus.emit(Events.UI_SHUFFLE, {}));
     this.el.sound.addEventListener('click', () => eventBus.emit(Events.UI_SOUND_TOGGLED, {}));
+    this.el.magnifier.addEventListener('click', () => eventBus.emit(Events.UI_MAGNIFIER_TOGGLED, {}));
     this.el.home.addEventListener('click', () => eventBus.emit(Events.UI_HOME, {}));
     this.el.playAgain.addEventListener('click', () =>
       eventBus.emit(Events.UI_START_BOARD, { layoutId: gameState.layoutId })
@@ -242,6 +246,29 @@ export class Ui {
     eventBus.on(Events.AUDIO_MUTE_TOGGLED, ({ muted }) => {
       this.el.soundIcon.textContent = muted ? '🔇' : '🔊';
     });
+    eventBus.on(Events.MAGNIFIER_TOGGLED, ({ on }) => this.setMagnifierOn(on));
+  }
+
+  /** Lights the magnifier button while the glass is out, so its state is never a guess. */
+  setMagnifierOn(on) {
+    this.el.magnifier.setAttribute('aria-pressed', String(Boolean(on)));
+  }
+
+  /**
+   * Shows or hides one element, and — when it has just appeared — makes it ignore taps for
+   * a moment (TIMING.screenSettle). The tap that put the screen up must not go on to press
+   * a button on it.
+   */
+  reveal(el, visible) {
+    const appearing = visible && el.classList.contains('hidden');
+    el.classList.toggle('hidden', !visible);
+    if (!appearing) return;
+    el.classList.add('is-settling');
+    clearTimeout(this.settleTimers.get(el));
+    this.settleTimers.set(
+      el,
+      setTimeout(() => el.classList.remove('is-settling'), TIMING.screenSettle * 1000)
+    );
   }
 
   /** One screen visible at a time; the in-game bar only during play. */
@@ -249,10 +276,10 @@ export class Ui {
     // Any screen change closes the legend, so it can never be left hanging over a
     // greeting or a win screen.
     if (screen !== 'board') this.el.legend.classList.add('hidden');
-    this.el.greeting.classList.toggle('hidden', screen !== 'greeting');
-    this.el.won.classList.toggle('hidden', screen !== 'won');
-    this.el.noMoves.classList.toggle('hidden', screen !== 'no-moves');
-    this.el.hud.classList.toggle('hidden', screen !== 'board');
+    this.reveal(this.el.greeting, screen === 'greeting');
+    this.reveal(this.el.won, screen === 'won');
+    this.reveal(this.el.noMoves, screen === 'no-moves');
+    this.reveal(this.el.hud, screen === 'board');
     if (screen !== 'board') this.el.nudge.classList.add('hidden');
     if (screen === 'board') this.refreshHud();
     if (screen === 'won') {

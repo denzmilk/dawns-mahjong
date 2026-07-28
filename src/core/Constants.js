@@ -2,9 +2,11 @@
 // wrong" bugs trace back to a drifted constant, and they are only findable if
 // there is exactly one place to look.
 
-// The 36-tile board: ~100 dp per tile on her tablet. Dawn found 68 dp too small, and the
-// default is what she gets if she never touches the board menu.
-export const LAYOUT_DEFAULT = 'garden-36';
+// The smallest board she can pick. Chris cut everything under 48 tiles (2026-07-28) —
+// 24 and 36 tiles were over before she had settled into them, and a board she doesn't
+// enjoy is worse than a board she has to squint at. The default is what she gets if she
+// never touches the board menu.
+export const LAYOUT_DEFAULT = 'steps-48';
 
 // Real mahjong tiles are taller than they are wide (~26 × 34 mm). Keeping that
 // ratio is most of what makes a board read as a physical set rather than a grid
@@ -67,6 +69,9 @@ export const COLORS = {
   felt: 0x12301f,
   feltRim: 0x0d2417,
   gold: 0xe8c547,
+  // The darker gold the bar's buttons are edged in (--gold-dim), reused for the
+  // magnifier's handle so the glass belongs to the same set of objects as the buttons.
+  goldDim: 0xa8892a,
   ivory: 0xf7f2e4,
   tileSide: 0xe4d9be,
   tileEdgeShadow: 0x9c8f6f,
@@ -113,18 +118,52 @@ export const TIME = {
   maxFrameDelta: 0.1,
 };
 
+// How every board is laid out on the screen it will actually be played on.
+//
+// Tile size is set by the board's FOOTPRINT, not by its tile count — 144 tiles spread
+// flat give 58 dp tiles, the same 144 stacked into a mound give far more. So the builder
+// searches footprints and keeps the one that measures biggest, rather than assuming
+// smaller is always better: a tall stack costs screen height too, and past a point the
+// tower eats more than the smaller footprint saved.
+export const BOARD = {
+  // The tallest mound allowed. Measured, not guessed: on her tablet upright, taking the
+  // 144-tile boards from 6 layers to 8 lifted them from 65–73 dp to 74–81. Ten gained
+  // another 1 dp and no more — past 8 the tower leans far enough toward the camera that
+  // perspective shrinks the far bottom row by as much as the narrower footprint gained,
+  // and each extra layer hides ~0.36 of a tile-depth of the row behind it.
+  maxLayers: 8,
+  // Free tiles the board must offer at the moment it is dealt. A mound exposes far fewer
+  // than a flat board does, and this is the floor that stops the search chasing tile size
+  // all the way down to a chimney with four tappable tiles on top.
+  //
+  // 10, not the 14 it was: at 14 the constraint — not the geometry — was what kept the
+  // 144-tile boards wide, and it was doing the job badly anyway. Free tiles are a poor
+  // proxy for *pairs* on offer, which is what she actually experiences; boards passing at
+  // 14 still opened with two pairs. `minOpeningPairs` below now guarantees that directly,
+  // which is what let this come down.
+  minPlayable: 10,
+  // Matching pairs guaranteed to be showing the moment a board is dealt. The board
+  // generator places the first few pairs on tiles that are free from the start, so this is
+  // a guarantee rather than a hope. It is the difference between a mound that looks like a
+  // puzzle and one that looks like a wall.
+  minOpeningPairs: 4,
+  // The share of screen height the board can use once the bar has taken its strip. Only
+  // used to score one candidate footprint against another, so it needs to be about right
+  // rather than exact — the real fit is measured from the tiles themselves.
+  usableHeight: 0.85,
+};
+
 export const SURPRISE = {
   id: 'surprise-144',
-  // 48 tiles on a 12 × 6 grid. Two constraints pull against each other here: big tiles
-  // want few columns, and recognisable shapes want plenty of cells. 12 columns keeps
-  // tiles at ~68 dp, and asking for only 48 of the ~65 cells a silhouette typically
-  // holds leaves enough slack that thin shapes (stars, rings) still qualify — at 72 the
-  // generator had to retry past them, and 119 of 200 boards came out a butterfly.
+  // 48 tiles, matching the smallest board she can pick. Asking for only 48 of the ~65
+  // cells a silhouette typically holds leaves enough slack that thin shapes (stars, rings)
+  // still qualify — at 72 the generator had to retry past them, and 119 of 200 boards came
+  // out a butterfly.
   tiles: 48,
-  // The grid the shape is drawn on. Matches the widest hand-authored board, so a
-  // surprise shape can never be framed smaller than the turtle.
-  // The board is fitted to the screen, so a wider or deeper shape means smaller tiles:
-  // 12 columns is what keeps a surprise board's tiles the same size as the pagoda's.
+  // The grid the shape is DRAWN on, which since 2026-07-28 is no longer the grid it is
+  // played on: only the silhouette survives, and the mound is then built onto the
+  // footprint that measures biggest, exactly like every named board. So these are about
+  // giving a star enough cells to look like a star, nothing more.
   width: 12,
   height: 6,
   maxLayers: 5,
@@ -148,6 +187,35 @@ export const INPUT = {
   // range — an ambiguous near-miss does nothing rather than guessing. This is what
   // makes the 144-tile turtle usable at 47 dp per tile on a 10–11" tablet.
   tapForgivenessPx: 16,
+};
+
+// The magnifying glass (ADR-0004). A big glass lens she drags around the board with one
+// finger; tiles under it are re-rendered larger, not blown up from pixels, so the artwork
+// stays sharp at any size. Off by default and remembered between sessions.
+export const MAGNIFIER = {
+  // 2×, not more. The lens has to show enough board around a tile for her to find its
+  // partner — at 3× only one tile fits, which turns a magnifier into a peephole.
+  zoom: 2,
+  // Radius as a share of the screen's short side, floored and capped in dp. Big enough to
+  // hold three or four magnified tiles; small enough that the board is still mostly
+  // visible around it. On her tablet upright this lands at 132 dp across the radius.
+  radiusFactor: 0.22,
+  minRadius: 90,
+  maxRadius: 180,
+  // The gold rim, in dp. Thick on purpose: the lens must read as an object she can pick
+  // up, not as a smudge on the glass.
+  ringWidth: 10,
+  // The handle, as multiples of the radius. A magnifying glass without a handle is just a
+  // circle, and the handle is the part she will instinctively reach for.
+  handleLength: 0.85,
+  handleWidth: 0.17,
+  // Where it sits the first time she turns it on: middle of the screen, so it is
+  // impossible to miss and equally close to everywhere.
+  startX: 0.5,
+  startY: 0.5,
+  // Resolution of the off-screen render the lens shows. 768 covers a 360 dp lens at
+  // device pixel ratio 2 with room to spare, and it is drawn only when the lens moves.
+  targetSize: 768,
 };
 
 export const SELECTION = {
@@ -244,6 +312,15 @@ export const TIMING = {
   mismatchHold: 0.65,
   // How long a hint stays lit. Generous: she may need to look away and back.
   hintHold: 5,
+  // How long a screen that has just appeared ignores taps.
+  //
+  // A tap on the board is delivered twice by the browser: once as a pointer event, and
+  // again as the click it synthesises afterwards. If the first one caused a screen to
+  // appear — clearing the last pair puts up the win screen — the second lands on whatever
+  // button is now under her finger, and the screen she just earned is gone before she has
+  // read a word of it. Long enough to break that chain, short enough that a deliberate
+  // second tap still works.
+  screenSettle: 0.35,
 };
 
 // The 42 faces on Chris's tile sheet. Order matters: it is the atlas cell order

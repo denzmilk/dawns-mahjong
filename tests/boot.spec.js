@@ -41,17 +41,26 @@ test('canvas renders the board', async ({ page }) => {
   const corner = await averageColour(page, { x: 8, y: state.viewport.h - 40, w: 32, h: 32 });
   expect(isGreenish(corner), `corner should be felt green, got ${corner}`).toBe(true);
 
-  // A tile face is ivory-bright. Sampled off to one side of the face: the
-  // placeholder art puts big black glyphs down the middle, which would drag the
-  // average down and tell us nothing about the lighting.
-  const centre = state.tiles.find((t) => t.layer === Math.max(...state.tiles.map((x) => x.layer)));
-  const face = await averageColour(page, {
-    x: Math.round(centre.screen.cx - centre.screen.w * 0.34),
-    y: Math.round(centre.screen.cy - 5),
-    w: 10,
-    h: 10,
-  });
-  expect(isBright(face), `tile face should be bright, got ${face}`).toBe(true);
+  // Tile faces are ivory-bright. Sampled off to one side of the face, because the artwork
+  // puts big dark glyphs down the middle and their average would say nothing about the
+  // lighting — and across several tiles rather than one, because a mound puts a handful of
+  // tiles on its top layer and any single one of them can have a neighbour's shadow, a
+  // dark suit glyph or the tile's own edge under the sample point.
+  const topLayer = Math.max(...state.tiles.map((t) => t.layer));
+  const faces = [];
+  for (const tile of state.tiles.filter((t) => t.layer === topLayer).slice(0, 6)) {
+    faces.push(
+      await averageColour(page, {
+        x: Math.round(tile.screen.cx - tile.screen.w * 0.3),
+        y: Math.round(tile.screen.cy - 5),
+        w: 10,
+        h: 10,
+      })
+    );
+  }
+  expect(faces.some(isBright), `no tile face came out bright, got ${JSON.stringify(faces)}`).toBe(
+    true
+  );
 });
 
 test('renders every tile of both layouts', async ({ page }) => {

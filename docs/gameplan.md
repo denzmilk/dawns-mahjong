@@ -37,12 +37,20 @@ Tiles that fail either test are dimmed and cannot be tapped at all — tapping o
 - Tap a matching free tile to clear the pair.
 - Tap a non-matching free tile: both tiles shake, flash, and deselect with a soft thud. No penalty, no counter, nothing lost.
 
-**Boards** — eight, chosen from the front screen and labelled by tile count
-- **72 tiles (easy)** — the default. Two copies of each of the 34 faces plus 4 Elvis tiles, on a roomy layout with big finger-sized tiles.
-- **96 tiles (pagoda)** — twice the easy board, four layers deep, and still finger-sized on her tablet.
+**Boards** — ten, chosen from the front screen and labelled by tile count
+- **48 tiles (steps)** — the default and the smallest board there is. Chris cut the 24- and
+  36-tile boards on 2026-07-28: they were over before she had settled into them.
+- **72 tiles (easy)** — two copies of each of the 34 faces plus 4 Elvis tiles.
+- **96 tiles (pagoda)** — twice the easy board.
 - **144 tiles** in six shapes: **turtle** (the traditional pyramid), **dragon**, **cat**, **fortress**, **crab**, **spider** — the shapes she is most likely to already know.
-- **144 tiles (surprise)** — a shape generated fresh every game: stars, rings, hearts, crosses, flowers, diamonds, butterflies, blobs. There is always another board.
+- **48 tiles (surprise)** — a shape generated fresh every game: stars, rings, hearts, crosses, flowers, diamonds, butterflies, blobs. There is always another board.
 - A green tick marks every board she has finished.
+
+Every board is built at deal time into a **stepped mound** on whichever footprint makes its
+tiles biggest on the screen in front of her, rather than being laid out flat at its authored
+size. Tile size comes from the footprint, not the tile count, which is why a 144-tile board
+can have tiles nearly as big as a 48-tile one (73–94 dp against 90 on her tablet). The named
+shapes keep their silhouette; it is simply a stockier cat.
 
 **Help**
 - **10 hints** per game. A hint pulses one playable pair.
@@ -86,8 +94,8 @@ Procedural Web Audio only — no audio files, nothing to load, works offline.
 This game is deliberately **not**:
 
 - **Timed or scored.** No clock, no points, no leaderboard, no stars. Tiles-remaining is the only number on screen.
-- **A menu system.** Two buttons and a row of boards on the front screen; five in-game (help, mix, sound, how to play, menu). No settings tree, no tutorial to sit through. "How to play" is one tap, always available, and closes straight back to her game.
-- **Rotatable or zoomable.** Every gesture beyond a single tap is disabled — including pinch, drag, double-tap-to-zoom, and long-press — because every one of them is a way to break the view and not know how to fix it.
+- **A menu system.** Two buttons and a row of boards on the front screen; six in-game (help, mix, magnifier, sound, how to play, menu). No settings tree, no tutorial to sit through. "How to play" is one tap, always available, and closes straight back to her game.
+- **Rotatable or zoomable.** Every gesture beyond a single tap is disabled — including pinch, drag, double-tap-to-zoom, and long-press — because every one of them is a way to break the view and not know how to fix it. **One exception, added 2026-07-28 (ADR-0004): the magnifying glass.** She turns it on from the bar and slides it about the board with one finger, and taps straight through it to play. It changes nothing except what is drawn over the board, it cannot be dragged off the screen, and one press of the button puts it away — so it cannot leave her anywhere she can't get out of, which is what the rule is for. A drag anywhere else on the board still does nothing at all.
 - **Online.** No accounts, no sign-in, no network calls, no ads, no analytics. It works with the wifi off.
 - **Punishing.** A wrong tap costs nothing. A dead-end board is phrased as bad luck, not failure.
 - **A general-purpose mahjong app.** It is built for Dawn's tablet and Dawn's eyes. Anyone else who enjoys it is a bonus, not a design input.
@@ -117,11 +125,16 @@ Detailed milestone docs exist for the first three. The rest are listed here as t
 8. **08 — Elvis** *(built)* — portraits on greeting/win, the 8 Elvis tile faces, the spotlight-and-rhinestones animation, palette accents.
 9. **09 — Onto her tablet** *(built)* — installable PWA: web app manifest, service worker, offline play, "Install on this tablet" button.
 10. **10 — GitHub Pages deploy** *(done out of order, 2026-07-27)* — pulled forward from 09 so every review happens on the real URL on Dawn's tablet rather than on a desktop dev server. The public repo was created early for the same reason.
+11. **11 — More boards, a legend, and the surprise board** *(built)* — the six shapes she may already know, a how-to-play she can open mid-game, a procedurally generated board, green ticks on finished boards.
+12. **12 — Bigger tiles, and a magnifying glass** *(built, 2026-07-28)* — boards under 48 tiles cut, every board rebuilt as a stepped mound on the footprint that measures biggest, and a draggable magnifying glass (ADR-0004).
 
 ## Resolved decisions
 
 - **No undo** (decided 2026-07-27). A mis-tap can't create a wrong match — two tiles must match to clear — so undo would only protect against a legitimate move she later regrets, and it would add a move history to the state model. The 10 hints and 3 reshuffles are the only help.
-- **The 144-tile turtle stays, with tap forgiveness** (decided 2026-07-27). Its tiles measure 47 dp on a 10–11" tablet, under this project's 64 dp rule, so a tap landing just outside a free tile counts as a tap on it when only one tile qualifies. The traditional layout is not altered.
+- **The 144-tile turtle stays, with tap forgiveness** (decided 2026-07-27). Its tiles measured 47 dp on a 10–11" tablet, under this project's 64 dp rule, so a tap landing just outside a free tile counts as a tap on it when only one tile qualifies. The traditional layout is not altered. *(Superseded in effect on 2026-07-28: every board is now built into a mound sized for the screen and the turtle measures 82 dp upright, clear of the 64 dp rule. Tap forgiveness stays — it costs nothing and helps an unsteady hand at any tile size.)*
+- **Nothing below 48 tiles** (decided 2026-07-28 by Chris). The 24- and 36-tile boards added the day before were over too quickly to be a game. Tile size no longer depends on the tile count in the way it did, so the small boards were buying something that is now free.
+- **The 144-tile boards are stacked, not shrunk** (decided 2026-07-28 by Chris). Asked whether to hide the big boards on small screens or make them fit, he chose neither: build them higher on a smaller footprint until their tiles are near the 48-tile board's. See milestone 12 for what that cost — a deeper mound hides more of itself, and offers fewer pairs at once.
+- **One draggable thing: the magnifying glass** (decided 2026-07-28 by Chris — *"that rule can be broken"*; ADR-0004, accepted). The single-tap rule is otherwise untouched, and the exception is scoped to the glass in code rather than to the game.
 
 ## Open questions
 
